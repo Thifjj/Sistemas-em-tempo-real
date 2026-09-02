@@ -1,0 +1,11 @@
+======= SUMÁRIO =======
+Duração do experimento: 10.0 s
+Valor final do recurso compartilhado: 372
+
+[T1] kind=periodic, deadline=hard, C≈10ms, D=50ms, P=50ms, prio=60
+   jobs=200, misses=0 (0.0%), resp_médio=12.34 ms
+[T2] kind=periodic, deadline=soft, C≈20ms, D=80ms, P=80ms, prio=80
+   jobs=125, misses=0 (0.0%), resp_médio=22.63 ms
+[T3] kind=sporadic, deadline=firm, C≈15ms, D=60ms, minIA=200ms, prio=40
+   jobs=47, misses=0 (0.0%), resp_médio=17.35 ms
+=======================

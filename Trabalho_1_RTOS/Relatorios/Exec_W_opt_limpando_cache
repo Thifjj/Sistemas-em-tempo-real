@@ -1,0 +1,14 @@
+@Thifjj ➜ /workspaces/Sistemas-em-tempo-real/Trabalho_1_RTOS (main) $ sudo sync && sudo sh -c 'echo 3 > /proc/sys/vm/drop_caches'
+@Thifjj ➜ /workspaces/Sistemas-em-tempo-real/Trabalho_1_RTOS (main) $ ./rt_lab 
+
+======= SUMÁRIO =======
+Duração do experimento: 10.0 s
+Valor final do recurso compartilhado: 372
+
+[T1] kind=periodic, deadline=hard, C≈10ms, D=50ms, P=50ms, prio=80
+   jobs=200, misses=0 (0.0%), resp_médio=12.12 ms
+[T2] kind=periodic, deadline=soft, C≈20ms, D=80ms, P=80ms, prio=60
+   jobs=125, misses=0 (0.0%), resp_médio=22.52 ms
+[T3] kind=sporadic, deadline=firm, C≈15ms, D=60ms, minIA=200ms, prio=40
+   jobs=47, misses=0 (0.0%), resp_médio=17.08 ms
+=======================
