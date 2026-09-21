@@ -1,0 +1,88 @@
+@Thifjj ➜ /workspaces/Sistemas-em-tempo-real/FDA_FILTER (main) $ ./run lena_noise.pgm
+PGMImage->y = 256
+PGMImage->x = 256
+PGMImage->max = 255
+Tempo que levou para ler o nome da imagem foi de 0.005549
+Tempo levou para alocar espaco para a matriz foi de 0.000177
+Tempo que levou para ler da imagem para a matriz foi de 0.000200
+contrast paramter lambda (>0) : 5
+number of iterations: 15
+iteration number:   1 
+iteration number:   2 
+iteration number:   3 
+iteration number:   4 
+iteration number:   5 
+iteration number:   6 
+iteration number:   7 
+iteration number:   8 
+iteration number:   9 
+iteration number:  10 
+iteration number:  11 
+iteration number:  12 
+iteration number:  13 
+iteration number:  14 
+iteration number:  15 
+Tempo que levou para processar o filtro da imagem foi de 0.658944
+Tempo que levou para copiar o resultado da imagem para a estrutura de arquivo foi de 0.000204
+name of output PGM image file (with extender): lena_noise_posfilter.pgm
+Tempo que levou para escrever a imagem de volta foi de 0.000823
+Tempo que levou para liberar o armazenamento da matriz foi de 0.000012
+@Thifjj ➜ /workspaces/Sistemas-em-tempo-real/FDA_FILTER (main) $ ./run Medical_X-Ray.pgm
+PGMImage->y = 256
+PGMImage->x = 210
+PGMImage->max = 255
+Tempo que levou para ler o nome da imagem foi de 0.006039
+Tempo levou para alocar espaco para a matriz foi de 0.000187
+Tempo que levou para ler da imagem para a matriz foi de 0.000202
+contrast paramter lambda (>0) : 5
+number of iterations: 15
+iteration number:   1 
+iteration number:   2 
+iteration number:   3 
+iteration number:   4 
+iteration number:   5 
+iteration number:   6 
+iteration number:   7 
+iteration number:   8 
+iteration number:   9 
+iteration number:  10 
+iteration number:  11 
+iteration number:  12 
+iteration number:  13 
+iteration number:  14 
+iteration number:  15 
+Tempo que levou para processar o filtro da imagem foi de 0.556930
+Tempo que levou para copiar o resultado da imagem para a estrutura de arquivo foi de 0.000187
+name of output PGM image file (with extender): medical_xray_posfilter.pgm
+Tempo que levou para escrever a imagem de volta foi de 0.000774
+Tempo que levou para liberar o armazenamento da matriz foi de 0.000009
+@Thifjj ➜ /workspaces/Sistemas-em-tempo-real/FDA_FILTER (main) $ ./run arm_hand.pgm
+PGMImage->y = 512
+PGMImage->x = 658
+PGMImage->max = 255
+Tempo que levou para ler o nome da imagem foi de 0.021293
+Tempo levou para alocar espaco para a matriz foi de 0.000798
+Tempo que levou para ler da imagem para a matriz foi de 0.001004
+contrast paramter lambda (>0) : 5
+number of iterations: 15
+iteration number:   1 
+iteration number:   2 
+iteration number:   3 
+iteration number:   4 
+iteration number:   5 
+iteration number:   6 
+iteration number:   7 
+iteration number:   8 
+iteration number:   9 
+iteration number:  10 
+iteration number:  11 
+iteration number:  12 
+iteration number:  13 
+iteration number:  14 
+iteration number:  15 
+Tempo que levou para processar o filtro da imagem foi de 3.116465
+Tempo que levou para copiar o resultado da imagem para a estrutura de arquivo foi de 0.000985
+name of output PGM image file (with extender): arm_hand_posfilter.pgm
+Tempo que levou para escrever a imagem de volta foi de 0.003621
+Tempo que levou para liberar o armazenamento da matriz foi de 0.000239
+@Thifjj ➜ /workspaces/Sistemas-em-tempo-real/FDA_FILTER (main) $ 
