@@ -1,114 +1,99 @@
-| Supported Targets | ESP32 | ESP32-H4 | ESP32-P4 | ESP32-S2 | ESP32-S3 | ESP32-S31 |
-| ----------------- | ----- | -------- | -------- | -------- | -------- | --------- |
+# Drone ESP32 com Touch Sensor e FreeRTOS
 
-# Capacity Touch Sensor Example
+Este projeto demonstra tarefas concorrentes no ESP32 usando ESP-IDF 6.1. O sensor touch aciona eventos de navegação, telemetria e fail-safe. A IMU, o controlador de atitude e as saídas dos motores são **simulados**; o programa não controla motores reais.
 
-(See the README.md file in the upper level 'examples' directory for more information about examples.)
+O código principal está em [`main/touch_sens_basic_example_main.c`](main/touch_sens_basic_example_main.c).
 
-This example is going to demonstrate how to register the touch channels and read the data.
+## Visão geral
 
-## How to Use Example
+```text
+FUS_IMU --notificação--> CTRL_ATT -- calcula --> saídas ESC simuladas
 
-### Hardware Required
-
-* A development board with any supported Espressif SOC chip (see `Supported Targets` table above)
-* A USB cable for power supply and programming
-* (Optional) Touch board with touch buttons on it.
-    - If you don't have a touch board, you can connect the touch pins with male jump wires and touch it directly for testing.
-
-### Configure the Project
-
-You can determine the touch channel number by ``EXAMPLE_TOUCH_CHANNEL_NUM`` in the example. And adjust the active threshold by ``s_thresh2bm_ratio``.
-
-### Build and Flash
-
-Build the project and flash it to the board, then run monitor tool to view serial output:
-
-```
-idf.py -p PORT build flash monitor
+Touch CH4 --fila--> NAV_PLAN (evento de navegação)
+Touch CH9 --fila--> NAV_PLAN (telemetria)
+Touch CH0 --semáforo--> FS_TASK (fail-safe simulado)
 ```
 
-(To exit the serial monitor, type ``Ctrl-]``.)
+As tarefas são fixadas no núcleo 0. Seus números de prioridade estão definidos no início do arquivo: quanto maior o número, maior a prioridade no FreeRTOS.
 
-See the Getting Started Guide for full steps to configure and use ESP-IDF to build projects.
+## Touches e ações
 
-## Example Output
+| Canal | GPIO mostrado na inicialização | Ação quando tocado |
+| --- | --- | --- |
+| CH4 | GPIO13 | Envia evento de navegação para `NAV_PLAN` |
+| CH9 | GPIO32 | Envia evento de telemetria para `NAV_PLAN` |
+| CH0 | GPIO4 | Acorda `FS_TASK` |
+| CH3 | GPIO15 | Configurado e calibrado, mas sem ação associada |
 
-You can see the following output in the monitor if the example runs successfully (take ESP32-P4 for example):
+Os GPIOs são consultados pela API do driver e impressos na inicialização. Confirme que correspondem à sua placa antes de conectar qualquer circuito.
 
-```
-Touch [CH 0] enabled on GPIO2
-Touch [CH 1] enabled on GPIO3
-Touch [CH 2] enabled on GPIO4
-Touch [CH 3] enabled on GPIO5
-=================================
-Initial benchmark and new threshold are:
-Touch [CH 0] 0: 5161, 77         1: 5121, 76     2: 2533, 37
-Touch [CH 1] 0: 5007, 75         1: 5036, 75     2: 2464, 36
-Touch [CH 2] 0: 5086, 76         1: 5056, 75     2: 2487, 37
-Touch [CH 3] 0: 4965, 74         1: 4989, 74     2: 2433, 36
-=================================
-benchmark [CH 0]: 5160 5121 2533
-smooth    [CH 0]: 5160 5122 2533
+## Partes do programa
 
-benchmark [CH 1]: 5007 5036 2464
-smooth    [CH 1]: 5007 5036 2464
+### Configuração e recursos compartilhados
 
-benchmark [CH 2]: 5086 5056 2487
-smooth    [CH 2]: 5086 5056 2487
+`FUS_T_MS` define o período pretendido da tarefa `FUS_IMU` (5 ms). `PRIO_*` define prioridades e `STK` define o tamanho de pilha passado ao criar cada tarefa.
 
-benchmark [CH 3]: 4964 4989 2433
-smooth    [CH 3]: 4964 4990 2433
+`hFUS`, `hCTRL`, `hNAV` e `hFS` guardam os identificadores das tarefas. `qNav` é uma fila com capacidade para oito eventos de navegação ou telemetria. `semFS` é um semáforo binário para acordar a tarefa de fail-safe.
 
-=================================
-benchmark [CH 0]: 5159 5121 2533
-smooth    [CH 0]: 5160 5121 2533
+`g_state` guarda roll, pitch e yaw simulados. `g_esc` armazena os quatro percentuais simulados dos motores. A função `esc_write_simulated()` limita cada valor ao intervalo de 0 a 100%; ela não envia sinal elétrico a um ESC.
 
-benchmark [CH 1]: 5005 5036 2464
-smooth    [CH 1]: 5006 5035 2464
+### Simulação de tempo
 
-benchmark [CH 2]: 5085 5056 2487
-smooth    [CH 2]: 5086 5056 2488
+`cpu_tight_loop_us(us)` ocupa a CPU pelo tempo indicado, medido por `esp_timer_get_time()`. O código usa essa função para representar o custo de processamento da fusão, controle, navegação e fail-safe. Ela não mede o tempo real desses algoritmos, pois eles são apenas demonstrações.
 
-benchmark [CH 3]: 4964 4990 2433
-smooth    [CH 3]: 4964 4990 2433
-...
-```
+### Tarefa `FUS_IMU`
 
-And if you touch and release a button, you will see the following output:
+Executa periodicamente. Atualiza os valores simulados de roll, pitch e yaw, consome aproximadamente 1 ms de CPU e notifica `CTRL_ATT`. `vTaskDelayUntil()` mantém o ritmo com base no período configurado.
 
-```
-...
-I (2861) touch_callback: [CH 0] active
-=================================
-benchmark [CH 0]: 5755 5425 2762
-smooth    [CH 0]: 5997 5666 2841
+O projeto usa `CONFIG_FREERTOS_HZ=1000` em [`sdkconfig.defaults`](sdkconfig.defaults), permitindo representar um período de 5 ms em ticks do FreeRTOS. Se o projeto já tiver um `sdkconfig` local, confirme nele que `CONFIG_FREERTOS_HZ` também está em `1000`.
 
-benchmark [CH 1]: 5025 5049 2473
-smooth    [CH 1]: 5025 5050 2473
+### Tarefa `CTRL_ATT`
 
-benchmark [CH 2]: 5104 5066 2495
-smooth    [CH 2]: 5105 5066 2495
+Fica bloqueada em `ulTaskNotifyTake()` até receber a notificação de `FUS_IMU`. Calcula erros entre a atitude simulada e as referências, aplica ganhos proporcionais simples (`kp_roll`, `kp_pitch`, `kp_yaw`) e mistura os resultados para obter `m1` a `m4`.
 
-benchmark [CH 3]: 4982 5002 2441
-smooth    [CH 3]: 4982 5001 2441
+As saídas passam por `esc_write_simulated()`. A cada 100 execuções, os percentuais são impressos no monitor serial. A carga de aproximadamente 800 µs representa o processamento do controlador.
 
-I (3021) touch_callback: [CH 0] inactive
-=================================
-benchmark [CH 0]: 5756 5428 2763
-smooth    [CH 0]: 5756 5428 2764
+### Tarefa `NAV_PLAN`
 
-benchmark [CH 1]: 5025 5048 2473
-smooth    [CH 1]: 5026 5048 2474
+Fica bloqueada em `xQueueReceive()` até chegar um evento. Para `EV_NAV`, imprime que recebeu navegação e simula 3,5 ms de processamento. Para `EV_TEL`, imprime roll, pitch e yaw e simula 500 µs de processamento.
 
-benchmark [CH 2]: 5104 5066 2495
-smooth    [CH 2]: 5104 5066 2495
+### Tarefa `FS_TASK`
 
-benchmark [CH 3]: 4981 5002 2441
-smooth    [CH 3]: 4981 5002 2441
-...
+Fica bloqueada em `xSemaphoreTake()` até CH0 liberar o semáforo. Então simula 900 µs de ação e imprime o tempo decorrido. No código atual, essa ação **não reduz o throttle nem altera as saídas dos motores**; é somente uma demonstração do fluxo de fail-safe.
+
+### Callbacks do touch
+
+`example_touch_on_active_cb()` é chamado quando um canal é tocado. Como o callback pode rodar em contexto de interrupção, ele usa `xQueueSendFromISR()` para enviar eventos e `xSemaphoreGiveFromISR()` para sinalizar o fail-safe. O callback retorna se uma tarefa de prioridade maior foi acordada.
+
+`example_touch_on_inactive_cb()` só registra no log qual canal foi liberado.
+
+### Calibração e inicialização do touch
+
+`example_touch_do_initial_scanning()` liga o sensor, faz leituras iniciais, lê o valor de referência (*benchmark*, quando suportado) e calcula o limite de ativação com `s_thresh2bm_ratio` (2%). A fórmula muda conforme a versão do hardware touch: no Touch V1 o valor cai ao tocar; nas versões seguintes o limite é calculado de outra forma. Depois, a configuração de cada canal é atualizada.
+
+`example_touch_init()` cria o controlador e os quatro canais, configura o filtro, calibra, registra os callbacks, habilita o sensor e inicia a leitura contínua. `ESP_ERROR_CHECK()` interrompe a inicialização se uma chamada do ESP-IDF retornar erro.
+
+### `app_main()`
+
+Cria a fila e o semáforo, inicia as quatro tarefas e inicializa o touch. Depois mantém a tarefa principal viva com uma espera de um segundo.
+
+## Compilar, gravar e acompanhar
+
+No terminal configurado para ESP-IDF 6.1:
+
+```sh
+idf.py build
+idf.py -p PORT flash monitor
 ```
 
-## Troubleshooting
+Troque `PORT` pela porta serial da placa, por exemplo `/dev/ttyUSB0`. Para sair do monitor serial, pressione `Ctrl+]`.
 
-For any technical queries, please open an [issue](https://github.com/espressif/esp-idf/issues) on GitHub. We will get back to you soon.
+Na saída serial, `ESC: ...` mostra os valores simulados dos motores; `TEL: ...` indica telemetria; `NAV_PLAN` indica um evento de navegação; e `FAIL-SAFE!` indica a execução simulada do tratamento de emergência.
+
+## Limites desta demonstração
+
+- Não há leitura de uma IMU real nem controle PID completo.
+- As saídas ESC são apenas números impressos; não há PWM nem comunicação com controladores de motor.
+- O fail-safe não altera as saídas dos motores.
+- CH3 está configurado, mas não tem comportamento associado.
+- Os estados compartilhados entre tarefas são demonstração e não usam proteção de concorrência.

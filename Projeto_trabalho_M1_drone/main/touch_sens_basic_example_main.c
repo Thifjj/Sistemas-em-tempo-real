@@ -73,6 +73,21 @@ static state_t g_state = {
     0,
     0};
 
+typedef struct
+{
+    float m1, m2, m3, m4;
+} esc_output_t;
+
+static esc_output_t g_esc = {0};
+
+static void esc_write_simulated(float m1, float m2, float m3, float m4)
+{
+    g_esc.m1 = m1 < 0.0f ? 0.0f : (m1 > 100.0f ? 100.0f : m1);
+    g_esc.m2 = m2 < 0.0f ? 0.0f : (m2 > 100.0f ? 100.0f : m2);
+    g_esc.m3 = m3 < 0.0f ? 0.0f : (m3 > 100.0f ? 100.0f : m3);
+    g_esc.m4 = m4 < 0.0f ? 0.0f : (m4 > 100.0f ? 100.0f : m4);
+}
+
 // ======================================================
 // FUNÇÃO PARA SIMULAR TEMPO DE EXECUÇÃO
 // ======================================================
