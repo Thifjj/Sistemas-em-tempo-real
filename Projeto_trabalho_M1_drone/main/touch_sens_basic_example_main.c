@@ -31,6 +31,22 @@
 
 #define STK 3072
 
+#define D_FUS_IMU 5
+
+#define D_CTRL_ATT 5
+
+#define D_NAV_PLAN 20
+
+#define D_FS_TASK 10
+
+// Timestamps em microssegundos desde o boot; contadores acumulados.
+// Para NAV/FS/CTRL, guarda somente o evento mais recente.
+static volatile int64_t ctrl_event_us, nav_event_us, fs_event_us;
+static volatile uint32_t runs_fus, runs_ctrl, runs_nav, runs_fs;
+static volatile uint32_t misses_fus, misses_ctrl, misses_nav, misses_fs;
+static volatile uint32_t touches_nav, touches_tel, touches_fs;
+
+
 // ======================================================
 // HANDLES DAS TASKS
 // ======================================================
@@ -107,15 +123,20 @@ static inline void cpu_tight_loop_us(uint32_t us)
 // Periódica: 5 ms
 // ======================================================
 
+// HARD - PQ? depedendo do tempo de resposta desta task como sua funcao e produzir o estado inercial e importante que ele esteja correto para o controle utilizar
+// e tambem notificar/acordar outra task de importancia essencial (CTRL_ATT) nao adianta acordar o controle com os dados ja incorretos para a acao
+// T=5ms D=5ms C:falta medir tempo de computacao dela
 static void task_fus_imu(void *arg)
 {
     TickType_t next = xTaskGetTickCount();
 
     const TickType_t T = pdMS_TO_TICKS(FUS_T_MS);
+    int64_t release_us = esp_timer_get_time();
 
     for (;;)
     {
-
+        //pegar tempo inicial
+        int64_t t_inicio = esp_timer_get_time();
         // Simulação da fusão dos sensores
 
         g_state.roll *= 0.98f;
@@ -130,11 +151,25 @@ static void task_fus_imu(void *arg)
         // Acorda CTRL_ATT
         if (hCTRL)
         {
+            ctrl_event_us = esp_timer_get_time();
             xTaskNotifyGive(hCTRL);
+        }
+        int64_t t_fim = esp_timer_get_time();
+        runs_fus++;
+        misses_fus += t_fim - release_us > D_FUS_IMU * 1000LL;
+        int64_t tempo = (t_fim - t_inicio)/1000;
+        
+        // UART a 115200 baud nao acompanha um log longo a cada 5 ms.
+        if (runs_fus % 100 == 0) {
+        printf("FUS_IMU: %lld ms", (long long) tempo);
+        printf(" | evento=%.2fms inicio=%.2fms fim=%.2fms exec=%.2fms misses=%lu/%lu\n",
+               release_us / 1000.0, t_inicio / 1000.0, t_fim / 1000.0,
+               (t_fim - t_inicio) / 1000.0, (unsigned long)misses_fus, (unsigned long)runs_fus);
         }
 
         // Mantém período de 5 ms
         vTaskDelayUntil(&next, T);
+        release_us += T * portTICK_PERIOD_MS * 1000LL;
     }
 }
 
@@ -143,6 +178,9 @@ static void task_fus_imu(void *arg)
 // ======================================================
 
 // ====== Controle de atitude (espera notificação da FUS_IMU) ======
+
+// HARD - tem acao principal de controle dos atuadores e do PID se atualizar usando valores muito antigos drone pode cair bater em alguma coisa e ja era
+//  T-indefinido pela task fus_imu - D=5ms C: medir tempo de computacao da task
 static void task_ctrl_att(void *arg)
 {
     const float roll_ref = 0.0f;
@@ -159,6 +197,8 @@ static void task_ctrl_att(void *arg)
     for (;;)
     {
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY); // acorda quando FUS_IMU terminar
+        int64_t event_us = ctrl_event_us;
+        int64_t task_start_us = esp_timer_get_time();
 
         // calcula erro de altitude
         float error_roll = roll_ref - g_state.roll;
@@ -192,13 +232,22 @@ static void task_ctrl_att(void *arg)
         // PID simulado + "carga" ~0.8 ms
         // (nesta demo, apenas consome tempo previsível)
         cpu_tight_loop_us(800);
+        int64_t task_end_us = esp_timer_get_time();
+        runs_ctrl++;
+        misses_ctrl += task_end_us - event_us > D_CTRL_ATT * 1000LL;
+        if (runs_ctrl % 100 == 0) {
+        printf("CTRL_ATT: evento=%.2fms inicio=%.2fms fim=%.2fms exec=%.2fms misses=%lu/%lu\n",
+               event_us / 1000.0, task_start_us / 1000.0, task_end_us / 1000.0,
+               (task_end_us - task_start_us) / 1000.0, (unsigned long)misses_ctrl, (unsigned long)runs_ctrl);
+        }
     }
 }
 
 // ======================================================
 // TASK 3 - NAVEGAÇÃO / TELEMETRIA
 // ======================================================
-
+// SOFT - PQ nao compromete o funcionamento do sistema e nem nada fisico, so teria um delay entre trocar de rotas nao teria problema critico ao estourar deadline
+// T - touch4 , D = 20ms c: deve ser medido
 static void task_nav_plan(void *arg)
 {
     nav_evt_t ev;
@@ -208,6 +257,8 @@ static void task_nav_plan(void *arg)
         if (
             xQueueReceive(qNav, &ev, portMAX_DELAY) == pdTRUE)
         {
+            int64_t event_us = nav_event_us;
+            int64_t task_start_us = esp_timer_get_time();
             // --------------------------
             // Evento de navegação
             // --------------------------
@@ -233,6 +284,12 @@ static void task_nav_plan(void *arg)
                 // Simula processamento
                 cpu_tight_loop_us(500);
             }
+            int64_t task_end_us = esp_timer_get_time();
+            runs_nav++;
+            misses_nav += task_end_us - event_us > D_NAV_PLAN * 1000LL;
+            printf("NAV_PLAN: evento=%.2fms inicio=%.2fms fim=%.2fms lat_touch=%.2fms misses=%lu/%lu\n",
+                   event_us / 1000.0, task_start_us / 1000.0, task_end_us / 1000.0,
+                   (task_start_us - event_us) / 1000.0, (unsigned long)misses_nav, (unsigned long)runs_nav);
         }
     }
 }
@@ -240,7 +297,9 @@ static void task_nav_plan(void *arg)
 // ======================================================
 // TASK 4 - FAIL SAFE
 // ======================================================
-
+//
+// HARD - acao que nao pode falhar se nao perde tudo
+// T - touch 0, D = 10ms c: medir
 static void task_fail_safe(void *arg)
 {
     for (;;)
@@ -249,6 +308,8 @@ static void task_fail_safe(void *arg)
         // Fica bloqueada esperando o semáforo
         if (xSemaphoreTake(semFS, portMAX_DELAY) == pdTRUE)
         {
+            int64_t event_us = fs_event_us;
+            int64_t task_start_us = esp_timer_get_time();
             int64_t t0 = esp_timer_get_time();
 
             // Simula ação crítica:
@@ -257,8 +318,14 @@ static void task_fail_safe(void *arg)
             cpu_tight_loop_us(900);
 
             int64_t dt = esp_timer_get_time() - t0;
+            int64_t task_end_us = esp_timer_get_time();
+            runs_fs++;
+            misses_fs += task_end_us - event_us > D_FS_TASK * 1000LL;
 
-            printf("FAIL-SAFE! tratado em %lld us\n", (long long)dt);
+            printf("FAIL-SAFE! tratado em %.2f ms\n", dt / 1000.0);
+            printf("FS_TASK: evento=%.2fms inicio=%.2fms fim=%.2fms lat_touch=%.2fms misses=%lu/%lu\n",
+                   event_us / 1000.0, task_start_us / 1000.0, task_end_us / 1000.0,
+                   (task_start_us - event_us) / 1000.0, (unsigned long)misses_fs, (unsigned long)runs_fs);
         }
     }
 }
@@ -284,8 +351,7 @@ static int s_channel_id[EXAMPLE_TOUCH_CHANNEL_NUM] = {
     4,
     9,
     0,
-    3
-};
+    3};
 
 // Threshold = 2%
 static float s_thresh2bm_ratio[EXAMPLE_TOUCH_CHANNEL_NUM] = {
@@ -308,6 +374,8 @@ static bool example_touch_on_active_cb(
     case 4:
     {
         nav_evt_t ev = EV_NAV;
+        touches_nav++;
+        nav_event_us = esp_timer_get_time();
 
         xQueueSendFromISR(qNav, &ev, &higher_priority_task_woken);
 
@@ -317,6 +385,8 @@ static bool example_touch_on_active_cb(
     case 9:
     {
         nav_evt_t ev = EV_TEL;
+        touches_tel++;
+        nav_event_us = esp_timer_get_time();
         xQueueSendFromISR(qNav, &ev, &higher_priority_task_woken);
 
         break;
@@ -324,6 +394,8 @@ static bool example_touch_on_active_cb(
 
     case 0:
     {
+        touches_fs++;
+        fs_event_us = esp_timer_get_time();
         xSemaphoreGiveFromISR(semFS, &higher_priority_task_woken);
 
         break;
@@ -609,6 +681,10 @@ void app_main(void)
     semFS = xSemaphoreCreateBinary();
 
     // Cria tasks
+    //RM : 
+    // FUSIMU : T 5ms
+    // CTRL_ATT : + taxa de evento esperado  = fusimu
+    // 
     xTaskCreatePinnedToCore(task_fail_safe, "FS_TASK", STK, NULL, PRIO_FS_TASK, &hFS, 0);
     xTaskCreatePinnedToCore(task_ctrl_att, "CTRL_ATT", STK, NULL, PRIO_CTRL_ATT, &hCTRL, 0);
     xTaskCreatePinnedToCore(task_nav_plan, "NAV_PLAN", STK, NULL, PRIO_NAV_PLAN, &hNAV, 0);
@@ -623,5 +699,12 @@ void app_main(void)
 
         vTaskDelay(
             pdMS_TO_TICKS(1000));
+        printf("TOTAL: hard_misses=%lu (FUS=%lu CTRL=%lu FS=%lu) soft_misses=%lu (NAV=%lu)\n",
+               (unsigned long)(misses_fus + misses_ctrl + misses_fs),
+               (unsigned long)misses_fus, (unsigned long)misses_ctrl, (unsigned long)misses_fs,
+               (unsigned long)misses_nav, (unsigned long)misses_nav);
+        printf("TOUCH: CH4=%lu CH9=%lu CH0=%lu | tasks NAV=%lu FS=%lu\n",
+               (unsigned long)touches_nav, (unsigned long)touches_tel, (unsigned long)touches_fs,
+               (unsigned long)runs_nav, (unsigned long)runs_fs);
     }
 }
