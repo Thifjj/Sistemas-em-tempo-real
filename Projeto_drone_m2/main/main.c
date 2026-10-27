@@ -6,6 +6,10 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include <stdint.h>
+#include <assert.h>
+#include <unistd.h>
+#include <sys/time.h>
+#include "driver/gpio.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/FreeRTOSConfig.h"
 #include "freertos/task.h"
@@ -30,11 +34,17 @@
 
 #define FUS_T_MS 5
 
+#if CONFIG_FREERTOS_HZ < 200
+#error "FUS_IMU requer CONFIG_FREERTOS_HZ >= 200 para um periodo de 5 ms"
+#endif
+
+#define PRIO_MON 5
+#define PRIO_TIME 2
 #define PRIO_FS_TASK 5
 #define PRIO_FUS_IMU 4
 #define PRIO_CTRL_ATT 3
 #define PRIO_NAV_PLAN 2
-
+#define BLINK_GPIO 2
 #define STK 3072
 
 #define D_FUS_IMU 5
@@ -77,6 +87,26 @@ static QueueHandle_t qNav = NULL;
 
 // Semáforo para Fail-Safe
 static SemaphoreHandle_t semFS = NULL;
+// Fila limitada: tarefas nunca esperam pela rede; perdas ficam contabilizadas.
+typedef struct { const char *task; int64_t evento, inicio, fim; } log_evento_t;
+static QueueHandle_t qLog;
+static uint32_t logs_perdidos;
+static portMUX_TYPE log_lock = portMUX_INITIALIZER_UNLOCKED;
+static bool hora_sincronizada;
+static esp_timer_handle_t led_timer;
+static void apagar_led(void *arg)
+{
+    gpio_set_level(BLINK_GPIO, 0);
+}
+static uint32_t ciclos_sntp;
+static portMUX_TYPE tempo_lock = portMUX_INITIALIZER_UNLOCKED;
+static void registrar_evento(const char *task, int64_t evento, int64_t inicio, int64_t fim)
+{
+    log_evento_t item = {task, evento, inicio, fim};
+    if (xQueueSend(qLog, &item, 0) != pdTRUE) {
+        portENTER_CRITICAL(&log_lock); logs_perdidos++; portEXIT_CRITICAL(&log_lock);
+    }
+}
 
 // ======================================================
 // ESTADO SIMULADO DO DRONE
@@ -160,6 +190,7 @@ static void task_fus_imu(void *arg)
             xTaskNotifyGive(hCTRL);
         }
         int64_t t_fim = esp_timer_get_time();
+        registrar_evento("FUS_IMU", release_us, t_inicio, t_fim);
         runs_fus++;
         misses_fus += t_fim - release_us > D_FUS_IMU * 1000LL;
         int64_t tempo = (t_fim - t_inicio) / 1000;
@@ -239,6 +270,7 @@ static void task_ctrl_att(void *arg)
         // (nesta demo, apenas consome tempo previsível)
         cpu_tight_loop_us(800);
         int64_t task_end_us = esp_timer_get_time();
+        registrar_evento("CTRL_ATT", event_us, task_start_us, task_end_us);
         runs_ctrl++;
         misses_ctrl += task_end_us - event_us > D_CTRL_ATT * 1000LL;
         if (runs_ctrl % 100 == 0)
@@ -292,6 +324,7 @@ static void task_nav_plan(void *arg)
                 cpu_tight_loop_us(500);
             }
             int64_t task_end_us = esp_timer_get_time();
+            registrar_evento("NAV_PLAN", event_us, task_start_us, task_end_us);
             runs_nav++;
             misses_nav += task_end_us - event_us > D_NAV_PLAN * 1000LL;
             printf("NAV_PLAN: evento=%.2fms inicio=%.2fms fim=%.2fms lat_touch=%.2fms misses=%lu/%lu\n",
@@ -309,6 +342,8 @@ static void task_nav_plan(void *arg)
 // T - touch 0, D = 10ms c: medir
 static void task_fail_safe(void *arg)
 {
+    // O LED inicia apagado e permanece aceso apos uma emergencia.
+    gpio_set_level(BLINK_GPIO, 0);
     for (;;)
     {
 
@@ -318,7 +353,6 @@ static void task_fail_safe(void *arg)
             int64_t event_us = fs_event_us;
             int64_t task_start_us = esp_timer_get_time();
             int64_t t0 = esp_timer_get_time();
-
             // Simula ação crítica:
             // reduzir throttle / hover / pouso
 
@@ -326,6 +360,7 @@ static void task_fail_safe(void *arg)
 
             int64_t dt = esp_timer_get_time() - t0;
             int64_t task_end_us = esp_timer_get_time();
+            registrar_evento("FS_TASK", event_us, task_start_us, task_end_us);
             runs_fs++;
             misses_fs += task_end_us - event_us > D_FS_TASK * 1000LL;
 
@@ -339,25 +374,182 @@ static void task_fail_safe(void *arg)
 
 // #
 // TASK - 5 MONITOR_TASK
+// D - 500ms
+// Recebe comandos do pc para ativar as tasks FS_TASK e NAV_PLAN
+// Requisito: HARD
+// Motivo: Chama tasks com requisito hard e sua perca pode levar a uma mudanca atrasada ou uma falha de seguranca (FAIL SAFE)
 // #
+
+// Comandos aceitos em ambos os protocolos: NAV e FS (uma linha por comando).
+// A resposta indica se o evento foi aceito pela fila ou semaforo.
+static const char *monitor_command(const char *cmd)
+{
+    const char *espaco = strchr(cmd, ' ');
+    if (espaco) cmd = espaco + 1;
+    if (strcmp(cmd, "NAV") == 0) {
+        nav_evt_t ev = EV_NAV;
+        nav_event_us = esp_timer_get_time();
+        return xQueueSend(qNav, &ev, 0) == pdTRUE ? "OK\n" : "FILA_CHEIA\n";
+    }
+    if (strcmp(cmd, "FS") == 0) {
+        esp_timer_stop(led_timer);
+        gpio_set_level(BLINK_GPIO, 1);
+        ESP_ERROR_CHECK(esp_timer_start_once(led_timer, 1000000));
+        fs_event_us = esp_timer_get_time();
+        return xSemaphoreGive(semFS) == pdTRUE ? "OK\n" : "PENDENTE\n";
+    }
+    return "COMANDO_INVALIDO\n";
+}
+
+// Todos os sockets sao nao bloqueantes: a rede nao deve suspender o ciclo.
+static int monitor_socket(int type, int port)
+{
+    int fd = socket(AF_INET, type, 0);
+    if (fd < 0) return -1;
+    int flags = fcntl(fd, F_GETFL, 0);
+    struct sockaddr_in addr = { .sin_family = AF_INET, .sin_port = htons(port),
+                                .sin_addr.s_addr = htonl(INADDR_ANY) };
+    if (flags < 0 || fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0 ||
+        bind(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0 ||
+        (type == SOCK_STREAM && listen(fd, 1) < 0)) {
+        close(fd);
+        return -1;
+    }
+    return fd;
+}
 
 static void task_monitor(void *arg)
 {
-    int64_t release_us = esp_timer_get_time();
-    for (;;)
-    {
-        int64_t t_inicio = esp_timer_get_time();
-        wifi_init();
-        udp_task();
-        tcp_server_task();
-        int64_t t_fim = esp_timer_get_time();
-        int64_t tempo = (t_fim - t_inicio) / 1000;
+    TickType_t proximo = xTaskGetTickCount();
+    int udp = -1, servidor = -1, cliente = -1;
+    char entrada[256];
+    size_t usados = 0;
+    uint32_t sequencia = 0;
+    char tcp_saida[384];
+    size_t tcp_total = 0, tcp_enviado = 0;
+    struct sockaddr_in destino = { .sin_family = AF_INET, .sin_port = htons(PC_PORT) };
+    inet_pton(AF_INET, PC_IP, &destino.sin_addr);
+
+    for (;;) {
+        int64_t inicio = esp_timer_get_time();
+        // Ao perder o IP, fecha sockets e recria somente apos reconectar.
+        if (!(xEventGroupGetBits(wifi_events) & WIFI_CONNECTED_BIT)) {
+            if (cliente >= 0) close(cliente);
+            if (servidor >= 0) close(servidor);
+            if (udp >= 0) close(udp);
+            cliente = servidor = udp = -1;
+            usados = 0; tcp_total = tcp_enviado = 0;
+        } else {
+            if (udp < 0) udp = monitor_socket(SOCK_DGRAM, PC_PORT);
+            if (servidor < 0) servidor = monitor_socket(SOCK_STREAM, TCP_PORT);
+            if (servidor >= 0 && cliente < 0) {
+                cliente = accept(servidor, NULL, NULL);
+                if (cliente >= 0) {
+                    int flags = fcntl(cliente, F_GETFL, 0);
+                    if (flags < 0 || fcntl(cliente, F_SETFL, flags | O_NONBLOCK) < 0) {
+                        close(cliente); cliente = -1;
+                    }
+                }
+            }
+            // Um datagrama representa um comando; responde ao remetente.
+            if (udp >= 0) {
+                struct sockaddr_in origem;
+                socklen_t tamanho = sizeof(origem);
+                char datagrama[256];
+                int n = recvfrom(udp, datagrama, sizeof(datagrama) - 1, 0,
+                                 (struct sockaddr *)&origem, &tamanho);
+                if (n > 0) {
+                    datagrama[n] = 0;
+                    datagrama[strcspn(datagrama, "\r\n")] = 0;
+                    const char *resposta = monitor_command(datagrama);
+                    char ack[320];
+                    int tam = snprintf(ack, sizeof(ack), "ACK %s %s", datagrama, resposta);
+                    if (tam > 0 && tam < sizeof(ack) && sendto(udp, ack, tam, 0, (struct sockaddr *)&origem, tamanho) < 0)
+                        ESP_LOGW(TAG, "Falha no envio UDP: %d", errno);
+                }
+            }
+            // TCP e um fluxo: acumula fragmentos ate encontrar uma quebra de linha.
+            if (cliente >= 0) {
+                char buf[128];
+                int n = tcp_total == tcp_enviado ? recv(cliente, buf, sizeof(buf), 0) : -1;
+                if (tcp_total != tcp_enviado) errno = EAGAIN;
+                if (n == 0 || (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK)) {
+                    close(cliente); cliente = -1; usados = 0;
+                } else if (n > 0) {
+                    for (int i = 0; i < n; i++) {
+                        if (buf[i] == '\n') {
+                            entrada[usados] = 0;
+                            entrada[strcspn(entrada, "\r")] = 0;
+                            const char *resposta = monitor_command(entrada);
+                            // Uma resposta pendente preserva bytes em envios parciais.
+                            int tam = snprintf(tcp_saida, sizeof(tcp_saida), "ACK %s %s", entrada, resposta);
+                            if (tam > 0 && tam < sizeof(tcp_saida)) { tcp_total = tam; tcp_enviado = 0; }
+                            else { close(cliente); cliente = -1; break; }
+                            usados = 0;
+                            // Um comando por leitura; feche se vierem linhas adicionais para nao perder dados.
+                            if (i + 1 < n) { close(cliente); cliente = -1; tcp_total = tcp_enviado = 0; break; }
+                        } else if (usados < sizeof(entrada) - 1) entrada[usados++] = buf[i];
+                        else { usados = 0; close(cliente); cliente = -1; break; }
+                    }
+                }
+            }
+            // Envia registros individuais; limita o trabalho por ciclo e contabiliza perdas da fila.
+            for (int i = 0; i < 64; i++) {
+                if (cliente >= 0 && tcp_enviado < tcp_total) break;
+                log_evento_t item;
+                if (xQueueReceive(qLog, &item, 0) != pdTRUE) break;
+                struct timeval agora; gettimeofday(&agora, NULL);
+                portENTER_CRITICAL(&tempo_lock);
+                bool sincronizado = hora_sincronizada; uint32_t ciclos = ciclos_sntp;
+                portEXIT_CRITICAL(&tempo_lock);
+                portENTER_CRITICAL(&log_lock); uint32_t perdas = logs_perdidos; portEXIT_CRITICAL(&log_lock);
+                char log[384];
+                int n = snprintf(log, sizeof(log),
+                    "{\"seq\":%" PRIu32 ",\"epoch_ms\":%lld,\"sntp\":%s,\"ciclos_sntp\":%" PRIu32 ",\"task\":\"%s\",\"evento_us\":%lld,\"inicio_us\":%lld,\"fim_us\":%lld,\"perdidos\":%" PRIu32 "}\n",
+                    sequencia++, (long long)agora.tv_sec * 1000 + agora.tv_usec / 1000,
+                    sincronizado ? "true" : "false", ciclos, item.task,
+                    (long long)item.evento, (long long)item.inicio, (long long)item.fim, perdas);
+                if (n <= 0 || n >= sizeof(log)) continue;
+                if (udp >= 0 && sendto(udp, log, n, 0, (struct sockaddr *)&destino, sizeof(destino)) < 0)
+                    ESP_LOGW(TAG, "Falha no envio UDP: %d", errno);
+                if (cliente >= 0) { memcpy(tcp_saida, log, n); tcp_total = n; tcp_enviado = 0; }
+            }
+            // Reenvia apenas os bytes que faltam em caso de envio parcial.
+            if (cliente >= 0 && tcp_enviado < tcp_total) {
+                int n = send(cliente, tcp_saida + tcp_enviado, tcp_total - tcp_enviado, 0);
+                if (n > 0) tcp_enviado += n;
+                else if (n == 0 || (errno != EAGAIN && errno != EWOULDBLOCK)) {
+                    ESP_LOGW(TAG, "Conexao TCP encerrada: %d", errno);
+                    close(cliente); cliente = -1; tcp_total = tcp_enviado = usados = 0;
+                }
+            }
+        }
+        // Mede a duracao do ciclo e verifica seu prazo de 500 ms.
+        int64_t fim = esp_timer_get_time();
+        registrar_evento("MONITOR_TASK", inicio, inicio, fim);
+        if (fim - inicio > 500000) ESP_LOGW(TAG, "MONITOR excedeu 500 ms");
+        vTaskDelayUntil(&proximo, pdMS_TO_TICKS(500));
     }
 }
 
+// Apenas para Log
+static void time_sync_notification_cb(struct timeval *tv)
+{
+    portENTER_CRITICAL(&tempo_lock);
+    hora_sincronizada = true;
+    ciclos_sntp = 0;
+    portEXIT_CRITICAL(&tempo_lock);
+    ESP_LOGI(TAG, "Tempo sincronizado via SNTP.");
+}
 // #
 // TASK - 6 TIME_TASK
-static void task_time(void *arg){
+// D - 1000ms (1s)
+// Captura a hora de um servidor  SNTP e monitora quantos ciclos se passaram desde a atualizacao do servidor
+// #
+static void task_time(void *arg)
+{
+    // Aguarda o primeiro IP antes de iniciar o SNTP.
+    xEventGroupWaitBits(wifi_events, WIFI_CONNECTED_BIT, pdFALSE, pdTRUE, portMAX_DELAY);
     // Define fuso (Brasil sem DST): BRT-3
     setenv("TZ", "BRT-3", 1);
     tzset();
@@ -370,21 +562,16 @@ static void task_time(void *arg){
     sntp_setservername(2, "pool.ntp.org");
     sntp_init();
 
-    // Aguarda 1ª sincronização (até 15 s)
-    for (int i=0; i<30 && sntp_get_sync_status() == SNTP_SYNC_STATUS_RESET; ++i) {
-        vTaskDelay(pdMS_TO_TICKS(500));
-    }
-
-    time_t now = 0;
-    struct tm timeinfo = {0};
-    time(&now);
-    localtime_r(&now, &timeinfo);
-    if (timeinfo.tm_year < (2016 - 1900)) {
-        ESP_LOGW(TAG, "Ainda sem sync. Verifique WiFi/NTP.");
-    } else {
-        char buf[64];
-        strftime(buf, sizeof(buf), "%d/%m/%Y %H:%M:%S %Z", &timeinfo);
-        ESP_LOGI(TAG, "Hora atual: %s", buf);
+    // Periodicidade de um segundo; o callback reinicia o contador de ciclos.
+    TickType_t proximo = xTaskGetTickCount();
+    for (;;) {
+        int64_t inicio = esp_timer_get_time();
+        portENTER_CRITICAL(&tempo_lock);
+        if (hora_sincronizada) ciclos_sntp++;
+        portEXIT_CRITICAL(&tempo_lock);
+        int64_t fim = esp_timer_get_time();
+        registrar_evento("TIME_TASK", inicio, inicio, fim);
+        vTaskDelayUntil(&proximo, pdMS_TO_TICKS(1000));
     }
 }
 // #
@@ -735,17 +922,34 @@ static esp_err_t example_touch_init(void)
 
 void app_main(void)
 {
+    ESP_ERROR_CHECK(nvs_flash_init());
+    // 1. Reseta o pino para o estado padrão
+    gpio_reset_pin(BLINK_GPIO);
+
+    // 2. Configura o pino como Saída (Output)
+    gpio_set_direction(BLINK_GPIO, GPIO_MODE_OUTPUT);
+    const esp_timer_create_args_t led_timer_args = {
+        .callback = apagar_led,
+        .name = "led_fs",
+    };
+    ESP_ERROR_CHECK(esp_timer_create(&led_timer_args, &led_timer));
+
+    //inicializar wifi
+    wifi_init();
     // IPC
+    qLog = xQueueCreate(512, sizeof(log_evento_t));
+    assert(qLog != NULL);
     qNav = xQueueCreate(8, sizeof(nav_evt_t));
     semFS = xSemaphoreCreateBinary();
 
     // Cria tasks
-    // RM :
 
-    xTaskCreatePinnedToCore(task_fail_safe, "FS_TASK", STK, NULL, PRIO_FS_TASK, &hFS, 0);
-    xTaskCreatePinnedToCore(task_ctrl_att, "CTRL_ATT", STK, NULL, PRIO_CTRL_ATT, &hCTRL, 0);
-    xTaskCreatePinnedToCore(task_nav_plan, "NAV_PLAN", STK, NULL, PRIO_NAV_PLAN, &hNAV, 0);
-    xTaskCreatePinnedToCore(task_fus_imu, "FUS_IMU", STK, NULL, PRIO_FUS_IMU, &hFUS, 0);
+    xTaskCreate(task_fail_safe, "FS_TASK", STK, NULL, PRIO_FS_TASK, &hFS);
+    xTaskCreate(task_ctrl_att, "CTRL_ATT", STK, NULL, PRIO_CTRL_ATT, &hCTRL);
+    xTaskCreate(task_nav_plan, "NAV_PLAN", STK, NULL, PRIO_NAV_PLAN, &hNAV);
+    xTaskCreate(task_fus_imu, "FUS_IMU", STK, NULL, PRIO_FUS_IMU, &hFUS);
+    xTaskCreate(task_monitor, "MON", STK, NULL, PRIO_MON, NULL);
+    xTaskCreate(task_time, "TIME", STK, NULL, PRIO_TIME, NULL);
 
     ESP_ERROR_CHECK(example_touch_init());
 
