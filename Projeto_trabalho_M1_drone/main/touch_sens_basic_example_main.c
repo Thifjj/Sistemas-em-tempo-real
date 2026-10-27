@@ -682,9 +682,7 @@ void app_main(void)
 
     // Cria tasks
     //RM : 
-    // FUSIMU : T 5ms
-    // CTRL_ATT : + taxa de evento esperado  = fusimu
-    // 
+
     xTaskCreatePinnedToCore(task_fail_safe, "FS_TASK", STK, NULL, PRIO_FS_TASK, &hFS, 0);
     xTaskCreatePinnedToCore(task_ctrl_att, "CTRL_ATT", STK, NULL, PRIO_CTRL_ATT, &hCTRL, 0);
     xTaskCreatePinnedToCore(task_nav_plan, "NAV_PLAN", STK, NULL, PRIO_NAV_PLAN, &hNAV, 0);
