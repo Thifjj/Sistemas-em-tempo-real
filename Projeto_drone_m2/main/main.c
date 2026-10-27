@@ -14,7 +14,6 @@
 #include "freertos/FreeRTOSConfig.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
-#include "freertos/semphr.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "driver/touch_sens.h"
@@ -25,6 +24,9 @@
 #include "esp_wifi.h"
 #include <time.h>
 #include "tcp_udp_esp32_wifi_con.h"
+
+#include "drone_sim.h"
+#include "timing_metrics.h"
 
 #define TAG "DRONE"
 
@@ -45,7 +47,7 @@
 #define PRIO_CTRL_ATT 3
 #define PRIO_NAV_PLAN 2
 #define BLINK_GPIO 2
-#define STK 3072
+#define STK 6144
 
 #define D_FUS_IMU 5
 
@@ -55,13 +57,30 @@
 
 #define D_FS_TASK 10
 
-// Timestamps em microssegundos desde o boot; contadores acumulados.
-// Para NAV/FS/CTRL, guarda somente o evento mais recente.
-static volatile int64_t ctrl_event_us, nav_event_us, fs_event_us;
-static volatile uint32_t runs_fus, runs_ctrl, runs_nav, runs_fs;
-static volatile uint32_t misses_fus, misses_ctrl, misses_nav, misses_fs;
+// Cada evento transporta timestamp, sequencia local e origem.
+typedef enum { SRC_TOUCH, SRC_PC, SRC_FUSION, SRC_PERIODIC } event_source_t;
+typedef struct { int type; int64_t timestamp; uint32_t id; event_source_t source; state_t sample; } event_t;
+static uint32_t event_sequence;
+static portMUX_TYPE event_lock = portMUX_INITIALIZER_UNLOCKED;
+static uint32_t new_event_id(void)
+{
+    portENTER_CRITICAL_SAFE(&event_lock);
+    uint32_t id = ++event_sequence;
+    portEXIT_CRITICAL_SAFE(&event_lock);
+    return id;
+}
 static volatile uint32_t touches_nav, touches_tel, touches_fs;
-
+static drone_t drone;
+static portMUX_TYPE drone_lock = portMUX_INITIALIZER_UNLOCKED;
+static QueueHandle_t qCtrl, qFS;
+static const char *metric_names[] = {"FUS_IMU","CTRL_ATT","NAV_PLAN","FS_TASK","MONITOR_TASK","TIME_TASK"};
+static const uint32_t deadlines[] = {5000,5000,20000,10000,500000,1000000};
+static timing_metrics_t metrics[6];
+static portMUX_TYPE metric_lock = portMUX_INITIALIZER_UNLOCKED;
+static void event_drop(unsigned task)
+{
+    portENTER_CRITICAL_SAFE(&metric_lock); metrics[task].drops++; portEXIT_CRITICAL_SAFE(&metric_lock);
+}
 // ======================================================
 // HANDLES DAS TASKS
 // ======================================================
@@ -82,13 +101,12 @@ typedef enum
     EV_TEL = 2
 } nav_evt_t;
 
-// Queue para NAV / Telemetria
+// Fila para NAV / Telemetria
 static QueueHandle_t qNav = NULL;
 
-// Semáforo para Fail-Safe
-static SemaphoreHandle_t semFS = NULL;
+
 // Fila limitada: tarefas nunca esperam pela rede; perdas ficam contabilizadas.
-typedef struct { const char *task; int64_t evento, inicio, fim; } log_evento_t;
+typedef struct { const char *task; int64_t evento, inicio, fim; uint32_t id; event_source_t source; } log_evento_t;
 static QueueHandle_t qLog;
 static uint32_t logs_perdidos;
 static portMUX_TYPE log_lock = portMUX_INITIALIZER_UNLOCKED;
@@ -100,43 +118,15 @@ static void apagar_led(void *arg)
 }
 static uint32_t ciclos_sntp;
 static portMUX_TYPE tempo_lock = portMUX_INITIALIZER_UNLOCKED;
-static void registrar_evento(const char *task, int64_t evento, int64_t inicio, int64_t fim)
+static void registrar_evento(unsigned task, event_t event, int64_t inicio, int64_t fim)
 {
-    log_evento_t item = {task, evento, inicio, fim};
+    portENTER_CRITICAL(&metric_lock);
+    timing_add(&metrics[task], event.timestamp, inicio, fim, deadlines[task], task == 2);
+    portEXIT_CRITICAL(&metric_lock);
+    log_evento_t item = {metric_names[task], event.timestamp, inicio, fim, event.id, event.source};
     if (xQueueSend(qLog, &item, 0) != pdTRUE) {
         portENTER_CRITICAL(&log_lock); logs_perdidos++; portEXIT_CRITICAL(&log_lock);
     }
-}
-
-// ======================================================
-// ESTADO SIMULADO DO DRONE
-// ======================================================
-
-typedef struct
-{
-    float roll;
-    float pitch;
-    float yaw;
-} state_t;
-
-static state_t g_state = {
-    0,
-    0,
-    0};
-
-typedef struct
-{
-    float m1, m2, m3, m4;
-} esc_output_t;
-
-static esc_output_t g_esc = {0};
-
-static void esc_write_simulated(float m1, float m2, float m3, float m4)
-{
-    g_esc.m1 = m1 < 0.0f ? 0.0f : (m1 > 100.0f ? 100.0f : m1);
-    g_esc.m2 = m2 < 0.0f ? 0.0f : (m2 > 100.0f ? 100.0f : m2);
-    g_esc.m3 = m3 < 0.0f ? 0.0f : (m3 > 100.0f ? 100.0f : m3);
-    g_esc.m4 = m4 < 0.0f ? 0.0f : (m4 > 100.0f ? 100.0f : m4);
 }
 
 // ======================================================
@@ -164,211 +154,68 @@ static inline void cpu_tight_loop_us(uint32_t us)
 static void task_fus_imu(void *arg)
 {
     TickType_t next = xTaskGetTickCount();
-
-    const TickType_t T = pdMS_TO_TICKS(FUS_T_MS);
-    int64_t release_us = esp_timer_get_time();
-
-    for (;;)
-    {
-        // pegar tempo inicial
-        int64_t t_inicio = esp_timer_get_time();
-        // Simulação da fusão dos sensores
-
-        g_state.roll *= 0.98f;
-        g_state.pitch *= 0.98f;
-        g_state.yaw *= 0.98f;
-        g_state.roll += 0.1f;
-        g_state.yaw += 0.05f;
-
-        // Simula aproximadamente 1 ms
+    int64_t release = esp_timer_get_time(), previous = release;
+    for (;;) {
+        int64_t start = esp_timer_get_time();
+        float dt = limit((start-previous)/1000000.0f, .001f, .05f); previous=start;
+        event_t event = {.timestamp=release,.id=new_event_id(),.source=SRC_PERIODIC};
+        portENTER_CRITICAL(&drone_lock);
+        drone_fuse(&drone, dt);
+        state_t sample = drone.estimate;
+        portEXIT_CRITICAL(&drone_lock);
         cpu_tight_loop_us(1000);
-
-        // Acorda CTRL_ATT
-        if (hCTRL)
-        {
-            ctrl_event_us = esp_timer_get_time();
-            xTaskNotifyGive(hCTRL);
-        }
-        int64_t t_fim = esp_timer_get_time();
-        registrar_evento("FUS_IMU", release_us, t_inicio, t_fim);
-        runs_fus++;
-        misses_fus += t_fim - release_us > D_FUS_IMU * 1000LL;
-        int64_t tempo = (t_fim - t_inicio) / 1000;
-
-        // UART a 115200 baud nao acompanha um log longo a cada 5 ms.
-        if (runs_fus % 100 == 0)
-        {
-            printf("FUS_IMU: %lld ms", (long long)tempo);
-            printf(" | evento=%.2fms inicio=%.2fms fim=%.2fms exec=%.2fms misses=%lu/%lu\n",
-                   release_us / 1000.0, t_inicio / 1000.0, t_fim / 1000.0,
-                   (t_fim - t_inicio) / 1000.0, (unsigned long)misses_fus, (unsigned long)runs_fus);
-        }
-
-        // Mantém período de 5 ms
-        vTaskDelayUntil(&next, T);
-        release_us += T * portTICK_PERIOD_MS * 1000LL;
+        event_t control = {.timestamp=esp_timer_get_time(), .id=event.id,
+                           .source=SRC_FUSION,.sample=sample};
+        if(xQueueSend(qCtrl,&control,0)!=pdTRUE) event_drop(1);
+        registrar_evento(0,event,start,esp_timer_get_time());
+        vTaskDelayUntil(&next,pdMS_TO_TICKS(FUS_T_MS));
+        release += FUS_T_MS*1000LL;
     }
 }
 
-// ======================================================
-// TASK 2 - CONTROLE DE ATITUDE
-// ======================================================
-
-// ====== Controle de atitude (espera notificação da FUS_IMU) ======
-
-// HARD - tem acao principal de controle dos atuadores e do PID se atualizar usando valores muito antigos drone pode cair bater em alguma coisa e ja era
-//  T-indefinido pela task fus_imu - D=5ms C: medir tempo de computacao da task
+// PID de atitude e altitude usa o estado da amostra que originou o evento.
 static void task_ctrl_att(void *arg)
 {
-    const float roll_ref = 0.0f;
-    const float pitch_ref = 0.0f;
-    const float yaw_ref = 0.0f;
-
-    const float kp_roll = 0.8f;
-    const float kp_pitch = 0.8f;
-    const float kp_yaw = 0.4f;
-
-    const float throttle_base = 50.0f;
-
-    static int count = 0;
-    for (;;)
-    {
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY); // acorda quando FUS_IMU terminar
-        int64_t event_us = ctrl_event_us;
-        int64_t task_start_us = esp_timer_get_time();
-
-        // calcula erro de altitude
-        float error_roll = roll_ref - g_state.roll;
-        float error_pitch = pitch_ref - g_state.pitch;
-        float error_yaw = yaw_ref - g_state.yaw;
-
-        // controlador simplificado
-
-        float ctrl_roll = kp_roll * error_roll;
-        float ctrl_pitch = kp_pitch * error_pitch;
-        float ctrl_yaw = kp_yaw * error_yaw;
-
-        float m1 = throttle_base + ctrl_pitch + ctrl_roll - ctrl_yaw;
-        float m2 = throttle_base + ctrl_pitch - ctrl_roll + ctrl_yaw;
-        float m3 = throttle_base - ctrl_pitch - ctrl_roll - ctrl_yaw;
-        float m4 = throttle_base - ctrl_pitch + ctrl_roll + ctrl_yaw;
-
-        esc_write_simulated(m1, m2, m3, m4);
-
-        // imprime a cada 100 execuções
-        count++;
-
-        if (count >= 100)
-        {
-            printf(
-                "ESC: M1=%.1f%% M2=%.1f%% M3=%.1f%% M4=%.1f%%\n", g_esc.m1, g_esc.m2, g_esc.m3, g_esc.m4);
-
-            count = 0;
-        }
-
-        // PID simulado + "carga" ~0.8 ms
-        // (nesta demo, apenas consome tempo previsível)
+    event_t event;
+    int64_t previous = 0;
+    for (;;) if(xQueueReceive(qCtrl,&event,portMAX_DELAY)==pdTRUE) {
+        int64_t start=esp_timer_get_time();
+        float dt=previous ? limit((event.timestamp-previous)/1000000.0f,.001f,.05f) : .005f;
+        previous=event.timestamp;
+        portENTER_CRITICAL(&drone_lock);
+        drone_control(&drone,event.sample,dt);
+        portEXIT_CRITICAL(&drone_lock);
         cpu_tight_loop_us(800);
-        int64_t task_end_us = esp_timer_get_time();
-        registrar_evento("CTRL_ATT", event_us, task_start_us, task_end_us);
-        runs_ctrl++;
-        misses_ctrl += task_end_us - event_us > D_CTRL_ATT * 1000LL;
-        if (runs_ctrl % 100 == 0)
-        {
-            printf("CTRL_ATT: evento=%.2fms inicio=%.2fms fim=%.2fms exec=%.2fms misses=%lu/%lu\n",
-                   event_us / 1000.0, task_start_us / 1000.0, task_end_us / 1000.0,
-                   (task_end_us - task_start_us) / 1000.0, (unsigned long)misses_ctrl, (unsigned long)runs_ctrl);
-        }
+        registrar_evento(1,event,start,esp_timer_get_time());
     }
 }
 
-// ======================================================
-// TASK 3 - NAVEGAÇÃO / TELEMETRIA
-// ======================================================
-// SOFT - PQ nao compromete o funcionamento do sistema e nem nada fisico, so teria um delay entre trocar de rotas nao teria problema critico ao estourar deadline
-// T - touch4 , D = 20ms c: deve ser medido
 static void task_nav_plan(void *arg)
 {
-    nav_evt_t ev;
-    for (;;)
-    {
-        // Fica bloqueada esperando algo entrar na Queue
-        if (
-            xQueueReceive(qNav, &ev, portMAX_DELAY) == pdTRUE)
-        {
-            int64_t event_us = nav_event_us;
-            int64_t task_start_us = esp_timer_get_time();
-            // --------------------------
-            // Evento de navegação
-            // --------------------------
-            if (ev == EV_NAV)
-            {
-                // Simula cálculo de rota
-                // aproximadamente 3.5 ms
-                ESP_LOGI(
-                    "NAV_PLAN",
-                    "Evento NAV recebido");
-                cpu_tight_loop_us(3500);
-            }
-
-            // --------------------------
-            // Evento de telemetria
-            // --------------------------
-
-            else if (ev == EV_TEL)
-            {
-
-                printf("TEL: roll=%.2f pitch=%.2f yaw=%.2f\n", g_state.roll, g_state.pitch, g_state.yaw);
-
-                // Simula processamento
-                cpu_tight_loop_us(500);
-            }
-            int64_t task_end_us = esp_timer_get_time();
-            registrar_evento("NAV_PLAN", event_us, task_start_us, task_end_us);
-            runs_nav++;
-            misses_nav += task_end_us - event_us > D_NAV_PLAN * 1000LL;
-            printf("NAV_PLAN: evento=%.2fms inicio=%.2fms fim=%.2fms lat_touch=%.2fms misses=%lu/%lu\n",
-                   event_us / 1000.0, task_start_us / 1000.0, task_end_us / 1000.0,
-                   (task_start_us - event_us) / 1000.0, (unsigned long)misses_nav, (unsigned long)runs_nav);
-        }
+    event_t event;
+    for (;;) if(xQueueReceive(qNav,&event,portMAX_DELAY)==pdTRUE) {
+        int64_t start=esp_timer_get_time();
+        portENTER_CRITICAL(&drone_lock);
+        if(event.type==EV_NAV) drone_navigate(&drone);
+        state_t state=drone.estimate;
+        portEXIT_CRITICAL(&drone_lock);
+        if(event.type==EV_TEL) printf("TEL: roll=%.2f pitch=%.2f yaw=%.2f altitude=%.2f\n",
+                                    state.roll,state.pitch,state.yaw,state.altitude);
+        cpu_tight_loop_us(event.type==EV_NAV ? 3500 : 500);
+        registrar_evento(2,event,start,esp_timer_get_time());
     }
 }
 
-// ======================================================
-// TASK 4 - FAIL SAFE
-// ======================================================
-//
-// HARD - acao que nao pode falhar se nao perde tudo
-// T - touch 0, D = 10ms c: medir
 static void task_fail_safe(void *arg)
 {
-    // O LED inicia apagado e permanece aceso apos uma emergencia.
-    gpio_set_level(BLINK_GPIO, 0);
-    for (;;)
-    {
-
-        // Fica bloqueada esperando o semáforo
-        if (xSemaphoreTake(semFS, portMAX_DELAY) == pdTRUE)
-        {
-            int64_t event_us = fs_event_us;
-            int64_t task_start_us = esp_timer_get_time();
-            int64_t t0 = esp_timer_get_time();
-            // Simula ação crítica:
-            // reduzir throttle / hover / pouso
-
-            cpu_tight_loop_us(900);
-
-            int64_t dt = esp_timer_get_time() - t0;
-            int64_t task_end_us = esp_timer_get_time();
-            registrar_evento("FS_TASK", event_us, task_start_us, task_end_us);
-            runs_fs++;
-            misses_fs += task_end_us - event_us > D_FS_TASK * 1000LL;
-
-            printf("FAIL-SAFE! tratado em %.2f ms\n", dt / 1000.0);
-            printf("FS_TASK: evento=%.2fms inicio=%.2fms fim=%.2fms lat_touch=%.2fms misses=%lu/%lu\n",
-                   event_us / 1000.0, task_start_us / 1000.0, task_end_us / 1000.0,
-                   (task_start_us - event_us) / 1000.0, (unsigned long)misses_fs, (unsigned long)runs_fs);
-        }
+    event_t event;
+    for (;;) if(xQueueReceive(qFS,&event,portMAX_DELAY)==pdTRUE) {
+        int64_t start=esp_timer_get_time();
+        portENTER_CRITICAL(&drone_lock);
+        drone_fail_safe(&drone);
+        portEXIT_CRITICAL(&drone_lock);
+        cpu_tight_loop_us(900);
+        registrar_evento(3,event,start,esp_timer_get_time());
     }
 }
 
@@ -381,22 +228,23 @@ static void task_fail_safe(void *arg)
 // #
 
 // Comandos aceitos em ambos os protocolos: NAV e FS (uma linha por comando).
-// A resposta indica se o evento foi aceito pela fila ou semaforo.
+// A resposta indica se o evento foi aceito pela fila.
 static const char *monitor_command(const char *cmd)
 {
     const char *espaco = strchr(cmd, ' ');
     if (espaco) cmd = espaco + 1;
     if (strcmp(cmd, "NAV") == 0) {
-        nav_evt_t ev = EV_NAV;
-        nav_event_us = esp_timer_get_time();
-        return xQueueSend(qNav, &ev, 0) == pdTRUE ? "OK\n" : "FILA_CHEIA\n";
+        event_t ev = {.type=EV_NAV,.timestamp=esp_timer_get_time(),.id=new_event_id(),.source=SRC_PC};
+        if(xQueueSend(qNav,&ev,0)==pdTRUE) return "OK\n";
+        event_drop(2); return "FILA_CHEIA\n";
     }
     if (strcmp(cmd, "FS") == 0) {
         esp_timer_stop(led_timer);
         gpio_set_level(BLINK_GPIO, 1);
         ESP_ERROR_CHECK(esp_timer_start_once(led_timer, 1000000));
-        fs_event_us = esp_timer_get_time();
-        return xSemaphoreGive(semFS) == pdTRUE ? "OK\n" : "PENDENTE\n";
+        event_t ev = {.timestamp=esp_timer_get_time(),.id=new_event_id(),.source=SRC_PC};
+        if(xQueueSend(qFS,&ev,0)==pdTRUE) return "OK\n";
+        event_drop(3); return "FILA_CHEIA\n";
     }
     return "COMANDO_INVALIDO\n";
 }
@@ -421,11 +269,12 @@ static int monitor_socket(int type, int port)
 static void task_monitor(void *arg)
 {
     TickType_t proximo = xTaskGetTickCount();
+    int64_t release = esp_timer_get_time();
     int udp = -1, servidor = -1, cliente = -1;
     char entrada[256];
     size_t usados = 0;
     uint32_t sequencia = 0;
-    char tcp_saida[384];
+    char tcp_saida[512];
     size_t tcp_total = 0, tcp_enviado = 0;
     struct sockaddr_in destino = { .sin_family = AF_INET, .sin_port = htons(PC_PORT) };
     inet_pton(AF_INET, PC_IP, &destino.sin_addr);
@@ -494,8 +343,15 @@ static void task_monitor(void *arg)
                 }
             }
             // Envia registros individuais; limita o trabalho por ciclo e contabiliza perdas da fila.
-            for (int i = 0; i < 64; i++) {
-                if (cliente >= 0 && tcp_enviado < tcp_total) break;
+            for (int i = 0; i < 256; i++) {
+                if (cliente >= 0 && tcp_enviado < tcp_total) {
+                    int sent=send(cliente,tcp_saida+tcp_enviado,tcp_total-tcp_enviado,0);
+                    if(sent>0) tcp_enviado+=sent;
+                    else if(sent==0 || (errno!=EAGAIN && errno!=EWOULDBLOCK)) {
+                        close(cliente); cliente=-1; tcp_total=tcp_enviado=0;
+                    }
+                    if(cliente>=0 && tcp_enviado<tcp_total) break;
+                }
                 log_evento_t item;
                 if (xQueueReceive(qLog, &item, 0) != pdTRUE) break;
                 struct timeval agora; gettimeofday(&agora, NULL);
@@ -503,11 +359,11 @@ static void task_monitor(void *arg)
                 bool sincronizado = hora_sincronizada; uint32_t ciclos = ciclos_sntp;
                 portEXIT_CRITICAL(&tempo_lock);
                 portENTER_CRITICAL(&log_lock); uint32_t perdas = logs_perdidos; portEXIT_CRITICAL(&log_lock);
-                char log[384];
+                char log[512];
                 int n = snprintf(log, sizeof(log),
-                    "{\"seq\":%" PRIu32 ",\"epoch_ms\":%lld,\"sntp\":%s,\"ciclos_sntp\":%" PRIu32 ",\"task\":\"%s\",\"evento_us\":%lld,\"inicio_us\":%lld,\"fim_us\":%lld,\"perdidos\":%" PRIu32 "}\n",
+                    "{\"seq\":%" PRIu32 ",\"epoch_ms\":%lld,\"sntp\":%s,\"ciclos_sntp\":%" PRIu32 ",\"task\":\"%s\",\"event_id\":%" PRIu32 ",\"source\":%u,\"evento_us\":%lld,\"inicio_us\":%lld,\"fim_us\":%lld,\"perdidos\":%" PRIu32 "}\n",
                     sequencia++, (long long)agora.tv_sec * 1000 + agora.tv_usec / 1000,
-                    sincronizado ? "true" : "false", ciclos, item.task,
+                    sincronizado ? "true" : "false", ciclos, item.task, item.id, (unsigned)item.source,
                     (long long)item.evento, (long long)item.inicio, (long long)item.fim, perdas);
                 if (n <= 0 || n >= sizeof(log)) continue;
                 if (udp >= 0 && sendto(udp, log, n, 0, (struct sockaddr *)&destino, sizeof(destino)) < 0)
@@ -526,9 +382,10 @@ static void task_monitor(void *arg)
         }
         // Mede a duracao do ciclo e verifica seu prazo de 500 ms.
         int64_t fim = esp_timer_get_time();
-        registrar_evento("MONITOR_TASK", inicio, inicio, fim);
+        registrar_evento(4,(event_t){.timestamp=release,.id=new_event_id(),.source=SRC_PERIODIC}, inicio, fim);
         if (fim - inicio > 500000) ESP_LOGW(TAG, "MONITOR excedeu 500 ms");
         vTaskDelayUntil(&proximo, pdMS_TO_TICKS(500));
+        release += 500000;
     }
 }
 
@@ -555,23 +412,25 @@ static void task_time(void *arg)
     tzset();
 
     // SNTP
-    sntp_setoperatingmode(SNTP_OPMODE_POLL);
+    esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
     sntp_set_time_sync_notification_cb(time_sync_notification_cb);
-    sntp_setservername(0, "a.st1.ntp.br");
-    sntp_setservername(1, "b.st1.ntp.br");
-    sntp_setservername(2, "pool.ntp.org");
-    sntp_init();
+    esp_sntp_setservername(0, "a.st1.ntp.br");
+    esp_sntp_setservername(1, "b.st1.ntp.br");
+    esp_sntp_setservername(2, "pool.ntp.org");
+    esp_sntp_init();
 
     // Periodicidade de um segundo; o callback reinicia o contador de ciclos.
     TickType_t proximo = xTaskGetTickCount();
+    int64_t release = esp_timer_get_time();
     for (;;) {
         int64_t inicio = esp_timer_get_time();
         portENTER_CRITICAL(&tempo_lock);
         if (hora_sincronizada) ciclos_sntp++;
         portEXIT_CRITICAL(&tempo_lock);
         int64_t fim = esp_timer_get_time();
-        registrar_evento("TIME_TASK", inicio, inicio, fim);
+        registrar_evento(5,(event_t){.timestamp=release,.id=new_event_id(),.source=SRC_PERIODIC}, inicio, fim);
         vTaskDelayUntil(&proximo, pdMS_TO_TICKS(1000));
+        release += 1000000;
     }
 }
 // #
@@ -619,21 +478,21 @@ static bool example_touch_on_active_cb(
 
     case 4:
     {
-        nav_evt_t ev = EV_NAV;
+        event_t ev = {.type=EV_NAV,.timestamp=esp_timer_get_time(),.id=new_event_id(),.source=SRC_TOUCH};
         touches_nav++;
-        nav_event_us = esp_timer_get_time();
 
-        xQueueSendFromISR(qNav, &ev, &higher_priority_task_woken);
+
+        if(xQueueSendFromISR(qNav, &ev, &higher_priority_task_woken)!=pdTRUE) event_drop(2);
 
         break;
     }
 
     case 9:
     {
-        nav_evt_t ev = EV_TEL;
+        event_t ev = {.type=EV_TEL,.timestamp=esp_timer_get_time(),.id=new_event_id(),.source=SRC_TOUCH};
         touches_tel++;
-        nav_event_us = esp_timer_get_time();
-        xQueueSendFromISR(qNav, &ev, &higher_priority_task_woken);
+
+        if(xQueueSendFromISR(qNav, &ev, &higher_priority_task_woken)!=pdTRUE) event_drop(2);
 
         break;
     }
@@ -641,8 +500,8 @@ static bool example_touch_on_active_cb(
     case 0:
     {
         touches_fs++;
-        fs_event_us = esp_timer_get_time();
-        xSemaphoreGiveFromISR(semFS, &higher_priority_task_woken);
+        event_t ev = {.timestamp=esp_timer_get_time(),.id=new_event_id(),.source=SRC_TOUCH};
+        if(xQueueSendFromISR(qFS,&ev,&higher_priority_task_woken)!=pdTRUE) event_drop(3);
 
         break;
     }
@@ -916,6 +775,50 @@ static esp_err_t example_touch_init(void)
     return ESP_OK;
 }
 
+// Resumo cumulativo: nenhuma impressao ocorre dentro de uma secao critica.
+static void print_metrics(void)
+{
+    for(unsigned i=0;i<6;i++) {
+        uint32_t runs, misses, drops, windows, violations; uint64_t r,c,l,j; unsigned h;
+        portENTER_CRITICAL(&metric_lock);
+        timing_metrics_t *m=&metrics[i];
+        runs=m->runs; misses=m->misses; drops=m->drops; windows=m->windows; violations=m->violations;
+        r=m->response_max; c=m->execution_max; l=m->latency_max; j=m->jitter_max;
+        h=timing_hwm99_bin(m);
+        portEXIT_CRITICAL(&metric_lock);
+        printf("METRIC %s runs=%lu misses=%lu drops=%lu WCRT_us=%llu C_wall_max_us=%llu latency_max_us=%llu jitter_max_us=%llu HWM99_bin_us=%u overflow=%u mk=%d/%d windows=%lu violations=%lu\n",
+               metric_names[i],(unsigned long)runs,(unsigned long)misses,(unsigned long)drops,
+               (unsigned long long)r,(unsigned long long)c,(unsigned long long)l,(unsigned long long)j,
+               h*HIST_US,h==HIST_BINS-1,MK_M,MK_K,(unsigned long)windows,(unsigned long)violations);
+    }
+#if CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS
+    static TaskStatus_t tasks[32];
+    static uint32_t last_total, last_idle[portNUM_PROCESSORS];
+    uint32_t total=0, idle[portNUM_PROCESSORS]={0};
+    UBaseType_t count=uxTaskGetSystemState(tasks,32,&total);
+    if(count) {
+        for(unsigned i=0;i<count;i++) {
+            for(unsigned core=0;core<portNUM_PROCESSORS;core++)
+                if(tasks[i].xHandle==xTaskGetIdleTaskHandleForCore(core)) idle[core]=tasks[i].ulRunTimeCounter;
+        }
+        uint32_t elapsed=total-last_total;
+        for(unsigned core=0;core<portNUM_PROCESSORS;core++) {
+            float busy=elapsed ? 100.0f*(1.0f-(float)(idle[core]-last_idle[core])/elapsed) : 0;
+            printf("CPU core=%u busy_pct=%.2f\n",core,limit(busy,0,100));
+            last_idle[core]=idle[core];
+        }
+        last_total=total;
+    } else ESP_LOGW(TAG,"Aumente a capacidade do snapshot de tarefas para medir CPU");
+#endif
+    portENTER_CRITICAL(&drone_lock);
+    drone_t snapshot=drone;
+    portEXIT_CRITICAL(&drone_lock);
+    printf("STATE roll=%.2f pitch=%.2f yaw=%.2f altitude=%.2f x=%.2f y=%.2f waypoint=%u emergency=%u motors=%.1f,%.1f,%.1f,%.1f\n",
+           snapshot.estimate.roll,snapshot.estimate.pitch,snapshot.estimate.yaw,snapshot.estimate.altitude,
+           snapshot.estimate.x,snapshot.estimate.y,snapshot.waypoint,snapshot.emergency,
+           snapshot.motors.m1,snapshot.motors.m2,snapshot.motors.m3,snapshot.motors.m4);
+}
+
 // ======================================================
 // APP MAIN
 // ======================================================
@@ -937,19 +840,22 @@ void app_main(void)
     //inicializar wifi
     wifi_init();
     // IPC
-    qLog = xQueueCreate(512, sizeof(log_evento_t));
+    drone_init(&drone);
+    qLog = xQueueCreate(1024, sizeof(log_evento_t));
     assert(qLog != NULL);
-    qNav = xQueueCreate(8, sizeof(nav_evt_t));
-    semFS = xSemaphoreCreateBinary();
+    qNav = xQueueCreate(16, sizeof(event_t));
+    qFS = xQueueCreate(16, sizeof(event_t));
+    qCtrl = xQueueCreate(16, sizeof(event_t));
+    assert(qNav && qFS && qCtrl);
 
     // Cria tasks
 
-    xTaskCreate(task_fail_safe, "FS_TASK", STK, NULL, PRIO_FS_TASK, &hFS);
-    xTaskCreate(task_ctrl_att, "CTRL_ATT", STK, NULL, PRIO_CTRL_ATT, &hCTRL);
-    xTaskCreate(task_nav_plan, "NAV_PLAN", STK, NULL, PRIO_NAV_PLAN, &hNAV);
-    xTaskCreate(task_fus_imu, "FUS_IMU", STK, NULL, PRIO_FUS_IMU, &hFUS);
-    xTaskCreate(task_monitor, "MON", STK, NULL, PRIO_MON, NULL);
-    xTaskCreate(task_time, "TIME", STK, NULL, PRIO_TIME, NULL);
+    ESP_ERROR_CHECK(xTaskCreate(task_fail_safe, "FS_TASK", STK, NULL, PRIO_FS_TASK, &hFS) == pdPASS ? ESP_OK : ESP_ERR_NO_MEM);
+    ESP_ERROR_CHECK(xTaskCreate(task_ctrl_att, "CTRL_ATT", STK, NULL, PRIO_CTRL_ATT, &hCTRL) == pdPASS ? ESP_OK : ESP_ERR_NO_MEM);
+    ESP_ERROR_CHECK(xTaskCreate(task_nav_plan, "NAV_PLAN", STK, NULL, PRIO_NAV_PLAN, &hNAV) == pdPASS ? ESP_OK : ESP_ERR_NO_MEM);
+    ESP_ERROR_CHECK(xTaskCreate(task_fus_imu, "FUS_IMU", STK, NULL, PRIO_FUS_IMU, &hFUS) == pdPASS ? ESP_OK : ESP_ERR_NO_MEM);
+    ESP_ERROR_CHECK(xTaskCreate(task_monitor, "MON", STK, NULL, PRIO_MON, NULL) == pdPASS ? ESP_OK : ESP_ERR_NO_MEM);
+    ESP_ERROR_CHECK(xTaskCreate(task_time, "TIME", STK, NULL, PRIO_TIME, NULL) == pdPASS ? ESP_OK : ESP_ERR_NO_MEM);
 
     ESP_ERROR_CHECK(example_touch_init());
 
@@ -959,13 +865,7 @@ void app_main(void)
     {
 
         vTaskDelay(
-            pdMS_TO_TICKS(1000));
-        printf("TOTAL: hard_misses=%lu (FUS=%lu CTRL=%lu FS=%lu) soft_misses=%lu (NAV=%lu)\n",
-               (unsigned long)(misses_fus + misses_ctrl + misses_fs),
-               (unsigned long)misses_fus, (unsigned long)misses_ctrl, (unsigned long)misses_fs,
-               (unsigned long)misses_nav, (unsigned long)misses_nav);
-        printf("TOUCH: CH4=%lu CH9=%lu CH0=%lu | tasks NAV=%lu FS=%lu\n",
-               (unsigned long)touches_nav, (unsigned long)touches_tel, (unsigned long)touches_fs,
-               (unsigned long)runs_nav, (unsigned long)runs_fs);
+            pdMS_TO_TICKS(5000));
+        print_metrics();
     }
 }
