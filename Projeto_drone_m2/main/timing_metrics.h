@@ -11,6 +11,12 @@
 typedef struct {
     uint32_t runs, misses, drops, windows, violations;
     uint64_t response_max, execution_max, latency_max, jitter_max, response_sum;
+    int64_t worst_event_us, worst_start_us, worst_end_us;
+    int64_t last_event_us, last_start_us, last_end_us;
+    uint64_t lock_wait_max_us, lock_wait_total_us;
+    uint32_t lock_samples, lower_priority_holder;
+    uint32_t simulated_touch_mask, pc_samples;
+    int64_t pc_activation_max_us, last_pc_send_ms, last_rx_ms, last_rx_us;
     uint32_t histogram[HIST_BINS];
     uint16_t history;
     unsigned filled;
@@ -22,7 +28,10 @@ static inline void timing_add(timing_metrics_t *s, int64_t event, int64_t start,
     uint64_t c = end > start ? end-start : 0;
     uint64_t l = start > event ? start-event : 0;
     s->runs++; s->misses += r > deadline; s->response_sum += r;
-    if(r>s->response_max) s->response_max=r;
+    s->last_event_us=event; s->last_start_us=start; s->last_end_us=end;
+    if(r>s->response_max || s->runs==1) {
+        s->response_max=r; s->worst_event_us=event; s->worst_start_us=start; s->worst_end_us=end;
+    }
     if(c>s->execution_max) s->execution_max=c;
     if(l>s->latency_max) s->latency_max=l;
     /* Jitter de liberacao: desvio absoluto do inicio em relacao ao release. */

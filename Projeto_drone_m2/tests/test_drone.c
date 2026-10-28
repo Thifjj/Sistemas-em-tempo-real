@@ -28,6 +28,8 @@ int main(void)
     timing_add(&m,0,30,102,100,true);
     assert(m.windows==2 && m.violations==1 && m.response_max==102 && m.latency_max==30);
     assert(timing_hwm99_bin(&m)==2);
+    assert(m.worst_event_us==0 && m.worst_start_us==30 && m.worst_end_us==102);
+    assert(m.last_start_us==30 && m.last_end_us==102);
     timing_add(&m,0,0,100001,100,false);
     assert(m.histogram[HIST_BINS-1]==1);
     puts("OK: filtro, PID, altitude, rota, fail-safe, metricas e janelas deslizantes (9,10)-firm");

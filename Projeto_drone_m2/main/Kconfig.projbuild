@@ -1,0 +1,20 @@
+menu "Drone experiment"
+config DRONE_EXPERIMENT
+    string "Experiment identifier (letters, digits, underscore or hyphen)"
+    default "default"
+choice DRONE_PROTOCOL
+    prompt "Experiment protocol"
+    default DRONE_PROTOCOL_UDP
+config DRONE_PROTOCOL_UDP
+    bool "UDP"
+config DRONE_PROTOCOL_TCP
+    bool "TCP"
+endchoice
+config DRONE_TOUCH_THRESHOLD_PERCENT
+    int "Touch threshold change (%)"
+    range 1 90
+    default 20
+    help
+        Initial threshold; calibrate with the actual electrodes, untouched at boot.
+        Increase if idle noise triggers events; decrease if real touches are missed.
+endmenu

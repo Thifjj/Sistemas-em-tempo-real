@@ -8,13 +8,18 @@
 #include "esp_netif.h"
 #include "lwip/sockets.h"
 #include "lwip/inet.h"
+#include "esp_eap_client.h"
 
 static const char *NET_TAG = "REDE";
-#define WIFI_SSID "Jacques"
-#define WIFI_PASS "74336456"
+//#define WIFI_SSID "Jacques"
+//#define WIFI_PASS "74336456"
+
+#define WIFI_SSID "UNIVALI"
+#define WIFI_USER ""
+#define WIFI_PASS ""
 #define TCP_PORT 5000 // qualquer número entre 0 e 65535
 
-#define PC_IP   "172.16.0.14"   // IP do PC - use ifconfig (Linux) ou ipconfig (Windows) para achar o IP
+#define PC_IP   "10.120.19.191"   // IP do PC - use ifconfig (Linux) ou ipconfig (Windows) para achar o IP
 #define PC_PORT 6010 // qualquer número entre 0 e 65535
 
 // O bit indica que a interface recebeu um endereco IP valido.
@@ -39,21 +44,51 @@ static void wifi_event_handler(void *arg, esp_event_base_t base, int32_t id, voi
 }
 
 // Inicializacao unica; o callback acompanha conexoes e desconexoes posteriores.
-static void wifi_init(void)
-{
+// static void wifi_init(void)
+// {
+//     wifi_events = xEventGroupCreate();
+//     assert(wifi_events != NULL);
+//     ESP_ERROR_CHECK(esp_netif_init());
+//     ESP_ERROR_CHECK(esp_event_loop_create_default());
+//     esp_netif_create_default_wifi_sta();
+//     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+//     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+//     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, wifi_event_handler, NULL));
+//     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, wifi_event_handler, NULL));
+//     wifi_config_t wc = { .sta = { .threshold.authmode = WIFI_AUTH_WPA2_PSK } };
+//     strlcpy((char *)wc.sta.ssid, WIFI_SSID, sizeof(wc.sta.ssid));
+//     strlcpy((char *)wc.sta.password, WIFI_PASS, sizeof(wc.sta.password));
+//     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+//     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wc));
+//     ESP_ERROR_CHECK(esp_wifi_start());
+// }
+
+static void wifi_init(void) {
     wifi_events = xEventGroupCreate();
     assert(wifi_events != NULL);
+
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     esp_netif_create_default_wifi_sta();
+
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, wifi_event_handler, NULL));
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, wifi_event_handler, NULL));
-    wifi_config_t wc = { .sta = { .threshold.authmode = WIFI_AUTH_WPA2_PSK } };
+
+    wifi_config_t wc = {0};
     strlcpy((char *)wc.sta.ssid, WIFI_SSID, sizeof(wc.sta.ssid));
-    strlcpy((char *)wc.sta.password, WIFI_PASS, sizeof(wc.sta.password));
+
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wc));
+
+    ESP_ERROR_CHECK(esp_eap_client_set_identity((const unsigned char *)WIFI_USER, strlen(WIFI_USER)));
+    ESP_ERROR_CHECK(esp_eap_client_set_username((const unsigned char *)WIFI_USER, strlen(WIFI_USER)));
+    ESP_ERROR_CHECK(esp_eap_client_set_password((const unsigned char *)WIFI_PASS, strlen(WIFI_PASS)));
+
+    ESP_ERROR_CHECK(esp_wifi_sta_enterprise_enable());
+
     ESP_ERROR_CHECK(esp_wifi_start());
+    ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
 }

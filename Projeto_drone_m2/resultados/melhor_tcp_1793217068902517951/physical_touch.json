@@ -1,0 +1,11 @@
+{
+  "run": 1,
+  "latency_ms_by_channel": {
+    "4": 0.036,
+    "9": 1.195,
+    "0": 0.039,
+    "3": 0.045
+  },
+  "detection_span_ms": 150.583,
+  "definition": "callback de deteccao ate inicio da tarefa"
+}
