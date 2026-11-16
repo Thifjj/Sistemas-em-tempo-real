@@ -1,0 +1,2 @@
+python3 main/udp_server.py --host 10.120.23.244 --experiment teste_udp
+python3 main/tcp_client.py --host 10.120.23.244 --experiment teste_tcp

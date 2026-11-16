@@ -1,0 +1,4 @@
+{"direction": "sent", "epoch_ms": 1793279804766, "protocol": "UDP", "experiment": "teste_udp", "bytes": 19, "pc_clock_synchronized": false, "mensagem": "1 1793279804765 FS"}
+{"direction": "sent", "epoch_ms": 1793279806918, "protocol": "UDP", "experiment": "teste_udp", "bytes": 19, "pc_clock_synchronized": false, "mensagem": "2 1793279806918 FS"}
+{"direction": "sent", "epoch_ms": 1793279864035, "protocol": "UDP", "experiment": "teste_udp", "bytes": 19, "pc_clock_synchronized": false, "mensagem": "3 1793279864035 FS"}
+{"direction": "sent", "epoch_ms": 1793279865235, "protocol": "UDP", "experiment": "teste_udp", "bytes": 19, "pc_clock_synchronized": false, "mensagem": "4 1793279865235 FS"}

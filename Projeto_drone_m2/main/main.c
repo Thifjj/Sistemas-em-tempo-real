@@ -154,7 +154,8 @@ static portMUX_TYPE metric_lock = portMUX_INITIALIZER_UNLOCKED;
 static void event_drop(unsigned task)
 {
     portENTER_CRITICAL_SAFE(&metric_lock);
-    if (experiment_active) metrics[task].drops++;
+    if (experiment_active)
+        metrics[task].drops++;
     portEXIT_CRITICAL_SAFE(&metric_lock);
 }
 // ======================================================
@@ -192,11 +193,12 @@ static size_t packet_size(char *text, size_t capacity)
     if (n < 2 || text[n - 2] != '}')
         return n;
     static uint32_t packet_sequence;
-    unsigned long sequence=packet_sequence++;
-    int tail = snprintf(text+n-2,capacity-n+2,",\"packet_seq\":%10lu,\"send_epoch_ms\":%20lld,\"bytes\":%6u}\n",sequence,0LL,0U);
-    if (tail < 0 || (size_t)tail >= capacity-n+2) return 0;
-    size_t total=n-2+tail;
-    snprintf(text+n-2,capacity-n+2,",\"packet_seq\":%10lu,\"send_epoch_ms\":%20lld,\"bytes\":%6u}\n",sequence,0LL,(unsigned)total);
+    unsigned long sequence = packet_sequence++;
+    int tail = snprintf(text + n - 2, capacity - n + 2, ",\"packet_seq\":%10lu,\"send_epoch_ms\":%20lld,\"bytes\":%6u}\n", sequence, 0LL, 0U);
+    if (tail < 0 || (size_t)tail >= capacity - n + 2)
+        return 0;
+    size_t total = n - 2 + tail;
+    snprintf(text + n - 2, capacity - n + 2, ",\"packet_seq\":%10lu,\"send_epoch_ms\":%20lld,\"bytes\":%6u}\n", sequence, 0LL, (unsigned)total);
     return total;
 }
 static int64_t epoch_ms(void)
@@ -205,21 +207,29 @@ static int64_t epoch_ms(void)
     gettimeofday(&t, NULL);
     return (int64_t)t.tv_sec * 1000 + t.tv_usec / 1000;
 }
-static void stamp_send(char *text) {
-    char *field=strstr(text,"\"send_epoch_ms\":");
-    if (field) { char value[21]; snprintf(value,sizeof(value),"%20lld",(long long)epoch_ms()); memcpy(field+16,value,20); }
+static void stamp_send(char *text)
+{
+    char *field = strstr(text, "\"send_epoch_ms\":");
+    if (field)
+    {
+        char value[21];
+        snprintf(value, sizeof(value), "%20lld", (long long)epoch_ms());
+        memcpy(field + 16, value, 20);
+    }
 }
 static void enter_drone(event_t *event)
 {
-    int64_t t=esp_timer_get_time();
-    if (xSemaphoreTake(drone_lock,0) != pdTRUE) {
-        event->resource_contended=true;
-        TaskHandle_t holder=xSemaphoreGetMutexHolder(drone_lock);
-        if (holder && uxTaskPriorityGet(holder)<uxTaskPriorityGet(NULL)) event->lower_priority_holder=true;
-        BaseType_t taken=xSemaphoreTake(drone_lock,portMAX_DELAY);
-        assert(taken==pdTRUE);
+    int64_t t = esp_timer_get_time();
+    if (xSemaphoreTake(drone_lock, 0) != pdTRUE)
+    {
+        event->resource_contended = true;
+        TaskHandle_t holder = xSemaphoreGetMutexHolder(drone_lock);
+        if (holder && uxTaskPriorityGet(holder) < uxTaskPriorityGet(NULL))
+            event->lower_priority_holder = true;
+        BaseType_t taken = xSemaphoreTake(drone_lock, portMAX_DELAY);
+        assert(taken == pdTRUE);
     }
-    event->lock_wait_us += esp_timer_get_time()-t;
+    event->lock_wait_us += esp_timer_get_time() - t;
 }
 static uint32_t logs_perdidos;
 static portMUX_TYPE log_lock = portMUX_INITIALIZER_UNLOCKED;
@@ -234,32 +244,41 @@ static portMUX_TYPE tempo_lock = portMUX_INITIALIZER_UNLOCKED;
 static void registrar_evento(unsigned task, event_t event, int64_t inicio, int64_t fim)
 {
     portENTER_CRITICAL(&metric_lock);
-    if (!experiment_active || event.timestamp < experiment_start) {
+    if (!experiment_active || event.timestamp < experiment_start)
+    {
         portEXIT_CRITICAL(&metric_lock);
         experiment_trace_end(task);
         return;
     }
     timing_add(&metrics[task], event.timestamp, inicio, fim, deadlines[task], task == 2);
     metrics[task].lock_wait_total_us += event.lock_wait_us;
-    if ((uint64_t)event.lock_wait_us > metrics[task].lock_wait_max_us) metrics[task].lock_wait_max_us=event.lock_wait_us;
-    if (event.resource_contended) metrics[task].lock_samples++;
-    if (event.lower_priority_holder) metrics[task].lower_priority_holder++;
-    if (event.source == SRC_SIM_TOUCH) metrics[task].simulated_touch_mask |= 1U << event.touch_channel;
-    if ((event.source == SRC_PC || event.source == SRC_SIM_TOUCH) && event.pc_send_ms) {
-        int64_t delay=(event.received_epoch_ms-event.pc_send_ms)*1000+inicio-event.received_us;
-        if (!metrics[task].pc_samples || delay>metrics[task].pc_activation_max_us) metrics[task].pc_activation_max_us=delay;
+    if ((uint64_t)event.lock_wait_us > metrics[task].lock_wait_max_us)
+        metrics[task].lock_wait_max_us = event.lock_wait_us;
+    if (event.resource_contended)
+        metrics[task].lock_samples++;
+    if (event.lower_priority_holder)
+        metrics[task].lower_priority_holder++;
+    if (event.source == SRC_SIM_TOUCH)
+        metrics[task].simulated_touch_mask |= 1U << event.touch_channel;
+    if ((event.source == SRC_PC || event.source == SRC_SIM_TOUCH) && event.pc_send_ms)
+    {
+        int64_t delay = (event.received_epoch_ms - event.pc_send_ms) * 1000 + inicio - event.received_us;
+        if (!metrics[task].pc_samples || delay > metrics[task].pc_activation_max_us)
+            metrics[task].pc_activation_max_us = delay;
         metrics[task].pc_samples++;
-        metrics[task].last_pc_send_ms=event.pc_send_ms; metrics[task].last_rx_ms=event.received_epoch_ms;
-        metrics[task].last_rx_us=event.received_us;
+        metrics[task].last_pc_send_ms = event.pc_send_ms;
+        metrics[task].last_rx_ms = event.received_epoch_ms;
+        metrics[task].last_rx_us = event.received_us;
     }
     portEXIT_CRITICAL(&metric_lock);
-    if (event.source == SRC_TOUCH) {
+    if (event.source == SRC_TOUCH)
+    {
         portENTER_CRITICAL(&event_lock);
-        physical_latency[event.touch_channel]=inicio-event.timestamp;
-        physical_event_time[event.touch_channel]=event.timestamp;
+        physical_latency[event.touch_channel] = inicio - event.timestamp;
+        physical_event_time[event.touch_channel] = event.timestamp;
         physical_done |= 1U << event.touch_channel;
         portEXIT_CRITICAL(&event_lock);
-        ESP_LOGI(TAG,"TOUCH confirmado canal=%d task=%s latencia_us=%lld",event.touch_channel,metric_names[task],(long long)(inicio-event.timestamp));
+        ESP_LOGI(TAG, "TOUCH confirmado canal=%d task=%s latencia_us=%lld", event.touch_channel, metric_names[task], (long long)(inicio - event.timestamp));
     }
     experiment_trace_end(task);
 }
@@ -387,73 +406,97 @@ static const char *execute_command(const char *cmd, int64_t received_us, int64_t
     if (sscanf(cmd, "%" SCNu32 " %lld %15s %c", &command_seq, &pc_send, action, &extra) != 3)
         return "COMANDO_INVALIDO\n";
     cmd = action;
-    if (strcmp(cmd, "TOUCHGET") == 0) {
+    if (strcmp(cmd, "TOUCHGET") == 0)
+    {
         static char result[384];
         portENTER_CRITICAL(&event_lock);
-        uint32_t mask=physical_done;
-        int64_t latency[4]={physical_latency[4],physical_latency[9],physical_latency[0],physical_latency[3]};
-        int64_t times[4]={physical_event_time[4],physical_event_time[9],physical_event_time[0],physical_event_time[3]};
+        uint32_t mask = physical_done;
+        int64_t latency[4] = {physical_latency[4], physical_latency[9], physical_latency[0], physical_latency[3]};
+        int64_t times[4] = {physical_event_time[4], physical_event_time[9], physical_event_time[0], physical_event_time[3]};
         portEXIT_CRITICAL(&event_lock);
-        snprintf(result,sizeof(result),"OK TOUCH %lu %lld %lld %lld %lld %lld %lld %lld %lld\n", (unsigned long)mask,
-                 (long long)latency[0],(long long)latency[1],(long long)latency[2],(long long)latency[3],
-                 (long long)times[0],(long long)times[1],(long long)times[2],(long long)times[3]);
+        snprintf(result, sizeof(result), "OK TOUCH %lu %lld %lld %lld %lld %lld %lld %lld %lld\n", (unsigned long)mask,
+                 (long long)latency[0], (long long)latency[1], (long long)latency[2], (long long)latency[3],
+                 (long long)times[0], (long long)times[1], (long long)times[2], (long long)times[3]);
         return result;
     }
-    if (strcmp(cmd, "TOUCHON") == 0) {
-        if (!physical_sensor) return "TOUCH_NOT_READY\n";
-        if (!physical_scanning) {
-            if (touch_sensor_start_continuous_scanning(physical_sensor) != ESP_OK) return "TOUCH_START_FAILED\n";
-            physical_scanning=true;
+    if (strcmp(cmd, "TOUCHON") == 0)
+    {
+        if (!physical_sensor)
+            return "TOUCH_NOT_READY\n";
+        if (!physical_scanning)
+        {
+            if (touch_sensor_start_continuous_scanning(physical_sensor) != ESP_OK)
+                return "TOUCH_START_FAILED\n";
+            physical_scanning = true;
         }
         portENTER_CRITICAL(&event_lock);
-        if (!physical_touch_enabled) { physical_touch_seen=0; physical_done=0; }
-        physical_touch_enabled=true;
+        if (!physical_touch_enabled)
+        {
+            physical_touch_seen = 0;
+            physical_done = 0;
+        }
+        physical_touch_enabled = true;
         portEXIT_CRITICAL(&event_lock);
         return "OK\n";
     }
-    if (strcmp(cmd, "TOUCHOFF") == 0) {
-        physical_touch_enabled=false;
-        if (physical_scanning) {
-            if (touch_sensor_stop_continuous_scanning(physical_sensor) != ESP_OK) return "TOUCH_STOP_FAILED\n";
-            physical_scanning=false;
+    if (strcmp(cmd, "TOUCHOFF") == 0)
+    {
+        physical_touch_enabled = false;
+        if (physical_scanning)
+        {
+            if (touch_sensor_stop_continuous_scanning(physical_sensor) != ESP_OK)
+                return "TOUCH_STOP_FAILED\n";
+            physical_scanning = false;
         }
         return "OK\n";
     }
-    if (strcmp(cmd, "T4") == 0 || strcmp(cmd, "T9") == 0 || strcmp(cmd, "T0") == 0 || strcmp(cmd, "T3") == 0) {
-        int channel=cmd[1]-'0';
-        event_t ev = {.type=channel == 4 ? EV_NAV : EV_TEL, .timestamp=esp_timer_get_time(),
-            .id=new_event_id(), .source=SRC_SIM_TOUCH, .touch_channel=channel,
-            .command_seq=command_seq, .pc_send_ms=pc_send, .received_us=received_us, .received_epoch_ms=received_ms};
-        if (channel == 0) ev.type=0;
-        unsigned task=channel == 0 ? 3 : 2;
-        if (xQueueSend(channel == 0 ? qFS : qNav, &ev, 0) == pdTRUE) return "OK\n";
-        event_drop(task); return "FILA_CHEIA\n";
+    if (strcmp(cmd, "T4") == 0 || strcmp(cmd, "T9") == 0 || strcmp(cmd, "T0") == 0 || strcmp(cmd, "T3") == 0)
+    {
+        int channel = cmd[1] - '0';
+        event_t ev = {.type = channel == 4 ? EV_NAV : EV_TEL, .timestamp = esp_timer_get_time(), .id = new_event_id(), .source = SRC_SIM_TOUCH, .touch_channel = channel, .command_seq = command_seq, .pc_send_ms = pc_send, .received_us = received_us, .received_epoch_ms = received_ms};
+        if (channel == 0)
+            ev.type = 0;
+        unsigned task = channel == 0 ? 3 : 2;
+        if (xQueueSend(channel == 0 ? qFS : qNav, &ev, 0) == pdTRUE)
+            return "OK\n";
+        event_drop(task);
+        return "FILA_CHEIA\n";
     }
-    if (strcmp(cmd, "HELLO") == 0) return "OK\n";
-    if (strcmp(cmd, "START") == 0) {
+    if (strcmp(cmd, "HELLO") == 0)
+        return "OK\n";
+    if (strcmp(cmd, "START") == 0)
+    {
         portENTER_CRITICAL(&metric_lock);
         experiment_active = false;
         portEXIT_CRITICAL(&metric_lock);
-        xQueueReset(qNav); xQueueReset(qFS); xQueueReset(qCtrl);
-        for (unsigned i=0; i<7+portNUM_PROCESSORS; i++) xQueueReset(qSummary[i]);
-        xSemaphoreTake(drone_lock,portMAX_DELAY);
+        xQueueReset(qNav);
+        xQueueReset(qFS);
+        xQueueReset(qCtrl);
+        for (unsigned i = 0; i < 7 + portNUM_PROCESSORS; i++)
+            xQueueReset(qSummary[i]);
+        xSemaphoreTake(drone_lock, portMAX_DELAY);
         drone_init(&drone);
         xSemaphoreGive(drone_lock);
-        portENTER_CRITICAL(&log_lock); logs_perdidos=0; portEXIT_CRITICAL(&log_lock);
+        portENTER_CRITICAL(&log_lock);
+        logs_perdidos = 0;
+        portEXIT_CRITICAL(&log_lock);
         experiment_trace_reset();
         portENTER_CRITICAL(&metric_lock);
         memset(metrics, 0, sizeof(metrics));
         memset(events_expected, 0, sizeof(events_expected));
         experiment_run++;
-        experiment_start=esp_timer_get_time();
-        experiment_active=true;
+        experiment_start = esp_timer_get_time();
+        experiment_active = true;
         portEXIT_CRITICAL(&metric_lock);
         static char started[48];
         snprintf(started, sizeof(started), "OK RUN %lu\n", (unsigned long)experiment_run);
         return started;
     }
-    if (strcmp(cmd, "STOP") == 0) {
-        portENTER_CRITICAL(&metric_lock); experiment_active=false; portEXIT_CRITICAL(&metric_lock);
+    if (strcmp(cmd, "STOP") == 0)
+    {
+        portENTER_CRITICAL(&metric_lock);
+        experiment_active = false;
+        portEXIT_CRITICAL(&metric_lock);
         experiment_trace_pause();
         return "OK\n";
     }
@@ -490,14 +533,17 @@ static const char *monitor_command(const char *cmd, int64_t received_us, int64_t
     char action[16], extra;
     if (sscanf(cmd, "%" SCNu32 " %lld %15s %c", &sequence, &sent, action, &extra) != 3)
         return "COMANDO_INVALIDO\n";
-    if (cached && strcmp(previous, cmd) == 0) return response;
-    if (strcmp(action, "HELLO") == 0) cached=false; // A new client session starts with HELLO.
-    if (cached && sequence <= last_sequence) return "SEQUENCIA_ANTIGA\n";
-    const char *result=execute_command(cmd, received_us, received_ms);
+    if (cached && strcmp(previous, cmd) == 0)
+        return response;
+    if (strcmp(action, "HELLO") == 0)
+        cached = false; // A new client session starts with HELLO.
+    if (cached && sequence <= last_sequence)
+        return "SEQUENCIA_ANTIGA\n";
+    const char *result = execute_command(cmd, received_us, received_ms);
     snprintf(response, sizeof(response), "%s", result);
     snprintf(previous, sizeof(previous), "%s", cmd);
-    last_sequence=sequence;
-    cached=true;
+    last_sequence = sequence;
+    cached = true;
     return response;
 }
 
@@ -528,12 +574,12 @@ static void task_monitor(void *arg)
     size_t usados = 0;
     char tcp_saida[2048];
     char tcp_ack[768];
-    size_t tcp_ack_total=0, tcp_ack_sent=0;
+    size_t tcp_ack_total = 0, tcp_ack_sent = 0;
     size_t tcp_total = 0, tcp_enviado = 0;
     int64_t udp_warning_at = -5000000;
     bool udp_peer_known = false;
     char udp_ack[512];
-    size_t udp_ack_len=0;
+    size_t udp_ack_len = 0;
     struct sockaddr_in udp_ack_peer;
     struct sockaddr_in destino = {.sin_family = AF_INET, .sin_port = htons(PC_PORT)};
     inet_pton(AF_INET, PC_IP, &destino.sin_addr);
@@ -554,9 +600,9 @@ static void task_monitor(void *arg)
             cliente = servidor = udp = -1;
             usados = 0;
             udp_peer_known = false;
-            udp_ack_len=0;
+            udp_ack_len = 0;
             tcp_total = tcp_enviado = 0;
-            tcp_ack_total=tcp_ack_sent=0;
+            tcp_ack_total = tcp_ack_sent = 0;
         }
         else
         {
@@ -569,12 +615,12 @@ static void task_monitor(void *arg)
                 cliente = accept(servidor, NULL, NULL);
                 if (cliente >= 0)
                 {
-                    tcp_ack_total=tcp_ack_sent=0;
-                    tcp_total=tcp_enviado=0;
+                    tcp_ack_total = tcp_ack_sent = 0;
+                    tcp_total = tcp_enviado = 0;
                     int flags = fcntl(cliente, F_GETFL, 0);
-                    int no_delay=1;
+                    int no_delay = 1;
                     if (flags < 0 || fcntl(cliente, F_SETFL, flags | O_NONBLOCK) < 0 ||
-                        setsockopt(cliente,IPPROTO_TCP,TCP_NODELAY,&no_delay,sizeof(no_delay)) < 0)
+                        setsockopt(cliente, IPPROTO_TCP, TCP_NODELAY, &no_delay, sizeof(no_delay)) < 0)
                     {
                         close(cliente);
                         cliente = -1;
@@ -587,19 +633,23 @@ static void task_monitor(void *arg)
                 struct sockaddr_in origem;
                 socklen_t tamanho = sizeof(origem);
                 char datagrama[256];
-                int n = udp_ack_len ? -1 : recvfrom(udp, datagrama, sizeof(datagrama) - 1, 0,
-                                 (struct sockaddr *)&origem, &tamanho);
+                int n = udp_ack_len ? -1 : recvfrom(udp, datagrama, sizeof(datagrama) - 1, 0, (struct sockaddr *)&origem, &tamanho);
                 if (n > 0)
                 {
                     int64_t rx_us = esp_timer_get_time(), rx_ms = epoch_ms();
                     datagrama[n] = 0;
                     datagrama[strcspn(datagrama, "\r\n")] = 0;
                     const char *resposta = monitor_command(datagrama, rx_us, rx_ms);
-                    if (strncmp(resposta, "OK", 2) == 0) { destino = origem; udp_peer_known = true; }
+                    if (strncmp(resposta, "OK", 2) == 0)
+                    {
+                        destino = origem;
+                        udp_peer_known = true;
+                    }
                     int tam = snprintf(udp_ack, sizeof(udp_ack), "ACK %s %lld %s", datagrama, (long long)epoch_ms(), resposta);
-                    if (tam > 0 && tam < sizeof(udp_ack)) {
-                        udp_ack_len=tam;
-                        udp_ack_peer=origem;
+                    if (tam > 0 && tam < sizeof(udp_ack))
+                    {
+                        udp_ack_len = tam;
+                        udp_ack_peer = origem;
                     }
                 }
             }
@@ -664,19 +714,24 @@ static void task_monitor(void *arg)
             // Envia registros individuais; limita o trabalho por ciclo e contabiliza perdas da fila.
             for (int i = 0; i < (CONFIG_DRONE_PROTOCOL_TCP ? 6 : 1); i++)
             {
-                if (udp >= 0 && udp_ack_len) {
+                if (udp >= 0 && udp_ack_len)
+                {
                     if (sendto(udp, udp_ack, udp_ack_len, 0, (struct sockaddr *)&udp_ack_peer, sizeof(udp_ack_peer)) < 0)
                         break; // ACKs have priority and retain their bytes until accepted by the stack.
-                    udp_ack_len=0;
+                    udp_ack_len = 0;
                 }
-                if (udp >= 0 && !udp_peer_known) break;
-                if (udp >= 0 && tcp_total) {
+                if (udp >= 0 && !udp_peer_known)
+                    break;
+                if (udp >= 0 && tcp_total)
+                {
                     stamp_send(tcp_saida);
                     int sent = sendto(udp, tcp_saida, tcp_total, 0, (struct sockaddr *)&destino, sizeof(destino));
-                    if (sent < 0) {
+                    if (sent < 0)
+                    {
                         int error = errno;
                         int64_t now = esp_timer_get_time();
-                        if (now - udp_warning_at >= 5000000) {
+                        if (now - udp_warning_at >= 5000000)
+                        {
                             ESP_LOGW(TAG, "UDP pendente: errno=%d heap=%u; verifique IP/rede do PC", error,
                                      (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT));
                             udp_warning_at = now;
@@ -689,7 +744,8 @@ static void task_monitor(void *arg)
                     break;
                 if (cliente >= 0 && tcp_enviado < tcp_total)
                 {
-                    if (!tcp_enviado) stamp_send(tcp_saida);
+                    if (!tcp_enviado)
+                        stamp_send(tcp_saida);
                     int sent = send(cliente, tcp_saida + tcp_enviado, tcp_total - tcp_enviado, 0);
                     if (sent > 0)
                         tcp_enviado += sent;
@@ -702,20 +758,26 @@ static void task_monitor(void *arg)
                     if (cliente >= 0 && tcp_enviado < tcp_total)
                         break;
                 }
-                if (cliente >= 0 && tcp_ack_sent < tcp_ack_total) {
-                    int sent=send(cliente,tcp_ack+tcp_ack_sent,tcp_ack_total-tcp_ack_sent,0);
-                    if (sent > 0) tcp_ack_sent+=sent;
-                    else if (sent == 0 || (errno != EAGAIN && errno != EWOULDBLOCK)) {
-                        close(cliente); cliente=-1;
-                        tcp_total=tcp_enviado=tcp_ack_total=tcp_ack_sent=0;
+                if (cliente >= 0 && tcp_ack_sent < tcp_ack_total)
+                {
+                    int sent = send(cliente, tcp_ack + tcp_ack_sent, tcp_ack_total - tcp_ack_sent, 0);
+                    if (sent > 0)
+                        tcp_ack_sent += sent;
+                    else if (sent == 0 || (errno != EAGAIN && errno != EWOULDBLOCK))
+                    {
+                        close(cliente);
+                        cliente = -1;
+                        tcp_total = tcp_enviado = tcp_ack_total = tcp_ack_sent = 0;
                         break;
                     }
-                    if (tcp_ack_sent < tcp_ack_total) break;
+                    if (tcp_ack_sent < tcp_ack_total)
+                        break;
                 }
                 summary_t summary;
                 bool has_summary = false;
                 for (unsigned slot = 0; slot < 7 + portNUM_PROCESSORS; slot++)
-                    if (xQueueReceive(qSummary[slot], &summary, 0) == pdTRUE) {
+                    if (xQueueReceive(qSummary[slot], &summary, 0) == pdTRUE)
+                    {
                         has_summary = true;
                         break;
                     }
@@ -735,7 +797,8 @@ static void task_monitor(void *arg)
             // Reenvia apenas os bytes que faltam em caso de envio parcial.
             if (cliente >= 0 && tcp_enviado < tcp_total)
             {
-                if (!tcp_enviado) stamp_send(tcp_saida);
+                if (!tcp_enviado)
+                    stamp_send(tcp_saida);
                 int n = send(cliente, tcp_saida + tcp_enviado, tcp_total - tcp_enviado, 0);
                 if (n > 0)
                     tcp_enviado += n;
@@ -848,18 +911,20 @@ static bool example_touch_on_active_cb(
     void *user_ctx)
 {
     portENTER_CRITICAL_SAFE(&event_lock);
-    uint32_t bit=1U << event->chan_id;
-    bool accept=physical_touch_enabled && !(physical_touch_seen & bit);
-    if (accept) physical_touch_seen |= bit;
+    uint32_t bit = 1U << event->chan_id;
+    bool accept = physical_touch_enabled && !(physical_touch_seen & bit);
+    if (accept)
+        physical_touch_seen |= bit;
     portEXIT_CRITICAL_SAFE(&event_lock);
-    if (!accept) return false;
+    if (!accept)
+        return false;
     BaseType_t higher_priority_task_woken = pdFALSE;
     switch (event->chan_id)
     {
 
     case 4:
     {
-        event_t ev = {.type = EV_NAV, .timestamp = esp_timer_get_time(), .id = new_event_id(), .source = SRC_TOUCH, .touch_channel=event->chan_id};
+        event_t ev = {.type = EV_NAV, .timestamp = esp_timer_get_time(), .id = new_event_id(), .source = SRC_TOUCH, .touch_channel = event->chan_id};
         touches_nav++;
 
         if (xQueueSendFromISR(qNav, &ev, &higher_priority_task_woken) != pdTRUE)
@@ -871,7 +936,7 @@ static bool example_touch_on_active_cb(
     case 3: // Fourth electrode: telemetry, measured separately by channel.
     case 9:
     {
-        event_t ev = {.type = EV_TEL, .timestamp = esp_timer_get_time(), .id = new_event_id(), .source = SRC_TOUCH, .touch_channel=event->chan_id};
+        event_t ev = {.type = EV_TEL, .timestamp = esp_timer_get_time(), .id = new_event_id(), .source = SRC_TOUCH, .touch_channel = event->chan_id};
         touches_tel++;
 
         if (xQueueSendFromISR(qNav, &ev, &higher_priority_task_woken) != pdTRUE)
@@ -883,7 +948,7 @@ static bool example_touch_on_active_cb(
     case 0:
     {
         touches_fs++;
-        event_t ev = {.timestamp = esp_timer_get_time(), .id = new_event_id(), .source = SRC_TOUCH, .touch_channel=event->chan_id};
+        event_t ev = {.timestamp = esp_timer_get_time(), .id = new_event_id(), .source = SRC_TOUCH, .touch_channel = event->chan_id};
         if (xQueueSendFromISR(qFS, &ev, &higher_priority_task_woken) != pdTRUE)
             event_drop(3);
 
@@ -1052,8 +1117,7 @@ static esp_err_t example_touch_init(void)
     // ==================================================
 
     touch_sensor_sample_config_t sample_cfg[TOUCH_SAMPLE_CFG_NUM] = {
-        TOUCH_SENSOR_V1_DEFAULT_SAMPLE_CONFIG(1.0, TOUCH_VOLT_LIM_L_0V5, TOUCH_VOLT_LIM_H_1V7)
-    };
+        TOUCH_SENSOR_V1_DEFAULT_SAMPLE_CONFIG(1.0, TOUCH_VOLT_LIM_L_0V5, TOUCH_VOLT_LIM_H_1V7)};
 
     touch_sensor_config_t sens_cfg =
         TOUCH_SENSOR_DEFAULT_BASIC_CONFIG(
@@ -1161,18 +1225,22 @@ static void print_metrics(bool verbose)
 {
     // Only app_main publishes summaries; reuse one buffer instead of stacking three.
     static summary_t summary;
-    if (verbose) printf("STACK main minimum_free_bytes=%u\n", (unsigned)uxTaskGetStackHighWaterMark(NULL));
+    if (verbose)
+        printf("STACK main minimum_free_bytes=%u\n", (unsigned)uxTaskGetStackHighWaterMark(NULL));
     portENTER_CRITICAL(&tempo_lock);
-    bool synced=hora_sincronizada;
+    bool synced = hora_sincronizada;
     portEXIT_CRITICAL(&tempo_lock);
-    for (unsigned i=0; i<EXAMPLE_TOUCH_CHANNEL_NUM; i++) {
+    for (unsigned i = 0; i < EXAMPLE_TOUCH_CHANNEL_NUM; i++)
+    {
         uint32_t value[EXAMPLE_TOUCH_SAMPLE_CFG_NUM];
         if (touch_channels[i] && touch_channel_read_data(touch_channels[i], TOUCH_CHAN_DATA_TYPE_SMOOTH, value) == ESP_OK)
-            if (verbose) printf("TOUCH_SAMPLE channel=%d smooth=%lu threshold_percent=%d\n", s_channel_id[i],
-                   (unsigned long)value[0], CONFIG_DRONE_TOUCH_THRESHOLD_PERCENT);
+            if (verbose)
+                printf("TOUCH_SAMPLE channel=%d smooth=%lu threshold_percent=%d\n", s_channel_id[i],
+                       (unsigned long)value[0], CONFIG_DRONE_TOUCH_THRESHOLD_PERCENT);
     }
-    if (hMON && verbose) printf("STACK MON minimum_free_bytes=%u allocated_bytes=%u\n",
-                     (unsigned)uxTaskGetStackHighWaterMark(hMON), STK_MON);
+    if (hMON && verbose)
+        printf("STACK MON minimum_free_bytes=%u allocated_bytes=%u\n",
+               (unsigned)uxTaskGetStackHighWaterMark(hMON), STK_MON);
     for (unsigned i = 0; i < 6; i++)
     {
         uint32_t runs, misses, drops, windows, violations;
@@ -1184,9 +1252,10 @@ static void print_metrics(bool verbose)
         uint64_t lock_max, lock_total, response_sum;
         bool final;
         portENTER_CRITICAL(&metric_lock);
-        run=experiment_run; final=!experiment_active;
+        run = experiment_run;
+        final = !experiment_active;
         timing_metrics_t *m = &metrics[i];
-        expected=events_expected[i];
+        expected = events_expected[i];
         runs = m->runs;
         misses = m->misses;
         drops = m->drops;
@@ -1197,32 +1266,46 @@ static void print_metrics(bool verbose)
         l = m->latency_max;
         j = m->jitter_max;
         h = timing_hwm99_bin(m);
-        worst[0]=m->worst_event_us; worst[1]=m->worst_start_us; worst[2]=m->worst_end_us;
-        last[0]=m->last_event_us; last[1]=m->last_start_us; last[2]=m->last_end_us;
-        lock_max=m->lock_wait_max_us; lock_total=m->lock_wait_total_us; lock_samples=m->lock_samples; lower_holder=m->lower_priority_holder;
-        response_sum=m->response_sum;
-        touch_mask=m->simulated_touch_mask; pc_samples=m->pc_samples; pc_max=m->pc_activation_max_us;
-        last_pc=m->last_pc_send_ms; last_rx=m->last_rx_ms; last_rx_us=m->last_rx_us;
+        worst[0] = m->worst_event_us;
+        worst[1] = m->worst_start_us;
+        worst[2] = m->worst_end_us;
+        last[0] = m->last_event_us;
+        last[1] = m->last_start_us;
+        last[2] = m->last_end_us;
+        lock_max = m->lock_wait_max_us;
+        lock_total = m->lock_wait_total_us;
+        lock_samples = m->lock_samples;
+        lower_holder = m->lower_priority_holder;
+        response_sum = m->response_sum;
+        touch_mask = m->simulated_touch_mask;
+        pc_samples = m->pc_samples;
+        pc_max = m->pc_activation_max_us;
+        last_pc = m->last_pc_send_ms;
+        last_rx = m->last_rx_ms;
+        last_rx_us = m->last_rx_us;
         portEXIT_CRITICAL(&metric_lock);
         snprintf(summary.text, sizeof(summary.text), "{" EXP_META ",\"kind\":\"metric\",\"sntp\":%s,\"events_expected\":%lu,\"run\":%lu,\"final\":%s,\"task\":\"%s\",\"epoch_ms\":%lld,\"runs\":%lu,\"misses\":%lu,\"drops\":%lu,\"WCRT_us\":%llu,\"HWM99_bin_us\":%u,\"windows\":%lu,\"violations\":%lu,\"logs_lost\":%lu}\n",
                  synced ? "true" : "false", (unsigned long)expected, (unsigned long)run, final ? "true" : "false", metric_names[i], (long long)epoch_ms(), (unsigned long)runs, (unsigned long)misses, (unsigned long)drops,
                  (unsigned long long)r, h * HIST_US, (unsigned long)windows, (unsigned long)violations, (unsigned long)logs_perdidos);
-        experiment_trace_sample_t trace=experiment_trace_read(metric_names[i]);
-        size_t length=strlen(summary.text)-2;
-        int added=snprintf(summary.text+length,sizeof(summary.text)-length,
-            ",\"deadline_us\":%lu,\"C_wall_max_us\":%llu,\"latency_max_us\":%llu,\"jitter_max_us\":%llu,\"response_sum_us\":%llu,\"hwm_overflow\":%s,\"worst_timestamps_us\":[%lld,%lld,%lld],\"last_timestamps_us\":[%lld,%lld,%lld],\"lock_wait_max_us\":%llu,\"lock_wait_total_us\":%llu,\"resource\":\"drone_mutex_PI\",\"lock_samples\":%lu,\"lower_priority_holder\":%lu,\"off_cpu_total_us\":%llu,\"switches_total\":%lu,\"sim_touch_mask\":%lu,\"pc_samples\":%lu,\"pc_activation_max_us\":%lld,\"last_pc_send_ms\":%lld,\"last_rx_ms\":%lld,\"last_rx_us\":%lld}\n",
-            (unsigned long)deadlines[i],(unsigned long long)c,(unsigned long long)l,(unsigned long long)j,
-            (unsigned long long)response_sum,h==HIST_BINS-1 ? "true" : "false",
-            (long long)worst[0],(long long)worst[1],(long long)worst[2],(long long)last[0],(long long)last[1],(long long)last[2],
-            (unsigned long long)lock_max,(unsigned long long)lock_total,(unsigned long)lock_samples,(unsigned long)lower_holder,
-            (unsigned long long)trace.off_cpu_us,(unsigned long)trace.switches,(unsigned long)touch_mask,(unsigned long)pc_samples,
-            (long long)pc_max,(long long)last_pc,(long long)last_rx,(long long)last_rx_us);
-        if (added < 0 || (size_t)added >= sizeof(summary.text)-length) ESP_LOGE(TAG,"Resumo excedeu buffer");
-        else xQueueOverwrite(qSummary[i], &summary);
-        if (verbose) printf("METRIC %s runs=%lu misses=%lu drops=%lu WCRT_us=%llu C_wall_max_us=%llu latency_max_us=%llu jitter_max_us=%llu HWM99_bin_us=%u overflow=%u mk=%d/%d windows=%lu violations=%lu\n",
-               metric_names[i], (unsigned long)runs, (unsigned long)misses, (unsigned long)drops,
-               (unsigned long long)r, (unsigned long long)c, (unsigned long long)l, (unsigned long long)j,
-               h * HIST_US, h == HIST_BINS - 1, MK_M, MK_K, (unsigned long)windows, (unsigned long)violations);
+        experiment_trace_sample_t trace = experiment_trace_read(metric_names[i]);
+        size_t length = strlen(summary.text) - 2;
+        int added = snprintf(summary.text + length, sizeof(summary.text) - length,
+                             ",\"deadline_us\":%lu,\"C_wall_max_us\":%llu,\"latency_max_us\":%llu,\"jitter_max_us\":%llu,\"response_sum_us\":%llu,\"hwm_overflow\":%s,\"worst_timestamps_us\":[%lld,%lld,%lld],\"last_timestamps_us\":[%lld,%lld,%lld],\"lock_wait_max_us\":%llu,\"lock_wait_total_us\":%llu,\"resource\":\"drone_mutex_PI\",\"lock_samples\":%lu,\"lower_priority_holder\":%lu,\"off_cpu_total_us\":%llu,\"switches_total\":%lu,\"sim_touch_mask\":%lu,\"pc_samples\":%lu,\"pc_activation_max_us\":%lld,\"last_pc_send_ms\":%lld,\"last_rx_ms\":%lld,\"last_rx_us\":%lld}\n",
+                             (unsigned long)deadlines[i], (unsigned long long)c, (unsigned long long)l, (unsigned long long)j,
+                             (unsigned long long)response_sum, h == HIST_BINS - 1 ? "true" : "false",
+                             (long long)worst[0], (long long)worst[1], (long long)worst[2], (long long)last[0], (long long)last[1], (long long)last[2],
+                             (unsigned long long)lock_max, (unsigned long long)lock_total, (unsigned long)lock_samples, (unsigned long)lower_holder,
+                             (unsigned long long)trace.off_cpu_us, (unsigned long)trace.switches, (unsigned long)touch_mask, (unsigned long)pc_samples,
+                             (long long)pc_max, (long long)last_pc, (long long)last_rx, (long long)last_rx_us);
+        if (added < 0 || (size_t)added >= sizeof(summary.text) - length)
+            ESP_LOGE(TAG, "Resumo excedeu buffer");
+        else
+            xQueueOverwrite(qSummary[i], &summary);
+        if (verbose)
+            printf("METRIC %s runs=%lu misses=%lu drops=%lu WCRT_us=%llu C_wall_max_us=%llu latency_max_us=%llu jitter_max_us=%llu HWM99_bin_us=%u overflow=%u mk=%d/%d windows=%lu violations=%lu\n",
+                   metric_names[i], (unsigned long)runs, (unsigned long)misses, (unsigned long)drops,
+                   (unsigned long long)r, (unsigned long long)c, (unsigned long long)l, (unsigned long long)j,
+                   h * HIST_US, h == HIST_BINS - 1, MK_M, MK_K, (unsigned long)windows, (unsigned long)violations);
     }
 #if CONFIG_FREERTOS_GENERATE_RUN_TIME_STATS
     static TaskStatus_t tasks[32];
@@ -1241,8 +1324,9 @@ static void print_metrics(bool verbose)
         for (unsigned core = 0; core < portNUM_PROCESSORS; core++)
         {
             float busy = elapsed ? 100.0f * (1.0f - (float)(idle[core] - last_idle[core]) / elapsed) : 0;
-            if (verbose) printf("CPU core=%u busy_pct=%.2f\n", core, limit(busy, 0, 100));
-                snprintf(summary.text, sizeof(summary.text), "{" EXP_META ",\"kind\":\"cpu\",\"run\":%lu,\"core\":%u,\"busy_pct\":%.2f,\"interval_us\":%lu,\"epoch_ms\":%lld}\n", (unsigned long)experiment_run, core, limit(busy, 0, 100), (unsigned long)elapsed, (long long)epoch_ms());
+            if (verbose)
+                printf("CPU core=%u busy_pct=%.2f\n", core, limit(busy, 0, 100));
+            snprintf(summary.text, sizeof(summary.text), "{" EXP_META ",\"kind\":\"cpu\",\"run\":%lu,\"core\":%u,\"busy_pct\":%.2f,\"interval_us\":%lu,\"epoch_ms\":%lld}\n", (unsigned long)experiment_run, core, limit(busy, 0, 100), (unsigned long)elapsed, (long long)epoch_ms());
             xQueueOverwrite(qSummary[6 + core], &summary);
             last_idle[core] = idle[core];
         }
@@ -1251,18 +1335,19 @@ static void print_metrics(bool verbose)
     else
         ESP_LOGW(TAG, "Aumente a capacidade do snapshot de tarefas para medir CPU");
 #endif
-    xSemaphoreTake(drone_lock,portMAX_DELAY);
+    xSemaphoreTake(drone_lock, portMAX_DELAY);
     drone_t snapshot = drone;
     xSemaphoreGive(drone_lock);
-    snprintf(summary.text,sizeof(summary.text),"{" EXP_META ",\"kind\":\"state\",\"run\":%lu,\"epoch_ms\":%lld,\"roll\":%.2f,\"pitch\":%.2f,\"yaw\":%.2f,\"altitude\":%.2f,\"x\":%.2f,\"y\":%.2f,\"waypoint\":%u,\"emergency\":%s}\n",
-        (unsigned long)experiment_run,(long long)epoch_ms(),snapshot.estimate.roll,snapshot.estimate.pitch,
-        snapshot.estimate.yaw,snapshot.estimate.altitude,snapshot.estimate.x,snapshot.estimate.y,
-        snapshot.waypoint,snapshot.emergency ? "true" : "false");
-    xQueueOverwrite(qSummary[6+portNUM_PROCESSORS],&summary);
-    if (verbose) printf("STATE roll=%.2f pitch=%.2f yaw=%.2f altitude=%.2f x=%.2f y=%.2f waypoint=%u emergency=%u motors=%.1f,%.1f,%.1f,%.1f\n",
-           snapshot.estimate.roll, snapshot.estimate.pitch, snapshot.estimate.yaw, snapshot.estimate.altitude,
-           snapshot.estimate.x, snapshot.estimate.y, snapshot.waypoint, snapshot.emergency,
-           snapshot.motors.m1, snapshot.motors.m2, snapshot.motors.m3, snapshot.motors.m4);
+    snprintf(summary.text, sizeof(summary.text), "{" EXP_META ",\"kind\":\"state\",\"run\":%lu,\"epoch_ms\":%lld,\"roll\":%.2f,\"pitch\":%.2f,\"yaw\":%.2f,\"altitude\":%.2f,\"x\":%.2f,\"y\":%.2f,\"waypoint\":%u,\"emergency\":%s}\n",
+             (unsigned long)experiment_run, (long long)epoch_ms(), snapshot.estimate.roll, snapshot.estimate.pitch,
+             snapshot.estimate.yaw, snapshot.estimate.altitude, snapshot.estimate.x, snapshot.estimate.y,
+             snapshot.waypoint, snapshot.emergency ? "true" : "false");
+    xQueueOverwrite(qSummary[6 + portNUM_PROCESSORS], &summary);
+    if (verbose)
+        printf("STATE roll=%.2f pitch=%.2f yaw=%.2f altitude=%.2f x=%.2f y=%.2f waypoint=%u emergency=%u motors=%.1f,%.1f,%.1f,%.1f\n",
+               snapshot.estimate.roll, snapshot.estimate.pitch, snapshot.estimate.yaw, snapshot.estimate.altitude,
+               snapshot.estimate.x, snapshot.estimate.y, snapshot.waypoint, snapshot.emergency,
+               snapshot.motors.m1, snapshot.motors.m2, snapshot.motors.m3, snapshot.motors.m4);
 }
 
 // ======================================================
@@ -1271,7 +1356,7 @@ static void print_metrics(bool verbose)
 
 void app_main(void)
 {
-    drone_lock=xSemaphoreCreateMutex();
+    drone_lock = xSemaphoreCreateMutex();
     assert(drone_lock);
     ESP_ERROR_CHECK(nvs_flash_init());
     // 1. Reseta o pino para o estado padrão
@@ -1291,7 +1376,8 @@ void app_main(void)
     // IPC
     drone_init(&drone);
     // Keep the latest snapshot per task/core while the network is unavailable.
-    for (unsigned i = 0; i < 7 + portNUM_PROCESSORS; i++) {
+    for (unsigned i = 0; i < 7 + portNUM_PROCESSORS; i++)
+    {
         qSummary[i] = xQueueCreate(1, sizeof(summary_t));
         assert(qSummary[i]);
     }

@@ -15,8 +15,8 @@ static const char *NET_TAG = "REDE";
 //#define WIFI_PASS "74336456"
 
 #define WIFI_SSID "UNIVALI"
-#define WIFI_USER ""
-#define WIFI_PASS ""
+#define WIFI_USER "8275637"
+#define WIFI_PASS "machado34"
 #define TCP_PORT 5000 // qualquer número entre 0 e 65535
 
 #define PC_IP   "10.120.19.191"   // IP do PC - use ifconfig (Linux) ou ipconfig (Windows) para achar o IP
