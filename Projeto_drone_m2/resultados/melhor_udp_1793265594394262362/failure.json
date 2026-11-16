@@ -1,0 +1,9 @@
+{
+  "status": "interrupted",
+  "error": "",
+  "repetition": 0,
+  "run": null,
+  "configuration": "melhor",
+  "protocol": "UDP",
+  "physical_touch_partial": {}
+}

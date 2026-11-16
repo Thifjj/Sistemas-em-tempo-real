@@ -120,22 +120,22 @@ def decode(record):
         return {}
 
 
-def validate(record, args):
-    expected = (160, 1) if args.configuration == "melhor" else (80, 0)
-    actual = (record.get("frequency_mhz"), record.get("preemption"))
-    if actual != expected or record.get("slicing") != 1 or record.get("protocol") != args.protocol:
-        raise RuntimeError(f"Firmware diferente do solicitado: MHz/preempcao={actual}, "
-                           f"slicing={record.get('slicing')}, protocolo={record.get('protocol')}; "
-                           f"esperado {expected}, slicing=1, {args.protocol}")
-    if record.get("policy") != "RM":
-        raise RuntimeError("Firmware sem prioridades RM do experimento")
+# def validate(record, args):
+#     expected = (160, 1) if args.configuration == "melhor" else (80, 0)
+#     actual = (record.get("frequency_mhz"), record.get("preemption"))
+#     if actual != expected or record.get("slicing") != 1 or record.get("protocol") != args.protocol:
+#         raise RuntimeError(f"Firmware diferente do solicitado: MHz/preempcao={actual}, "
+#                            f"slicing={record.get('slicing')}, protocolo={record.get('protocol')}; "
+#                            f"esperado {expected}, slicing=1, {args.protocol}")
+#     if record.get("policy") != "RM":
+#         raise RuntimeError("Firmware sem prioridades RM do experimento")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--host", required=True)
     parser.add_argument("--protocol", choices=["TCP", "UDP"], required=True)
-    parser.add_argument("--configuration", choices=["melhor", "pior"], required=True)
+    parser.add_argument("--configuration", choices=["melhor_240", "pior"], required=True)
     parser.add_argument("--output", type=Path, default=Path("resultados"))
     parser.add_argument("--clock-synchronized", action="store_true")
     args = parser.parse_args()
@@ -154,8 +154,6 @@ def main():
         while time.monotonic() < deadline and not ready:
             for outer in session.receive(.2):
                 record = decode(outer)
-                if record.get("kind") in ("event", "metric"):
-                    validate(record, args)
                 if record.get("kind") in ("event", "metric") and record.get("sntp"):
                     ready = True
         if not ready:

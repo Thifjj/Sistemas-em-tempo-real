@@ -1,0 +1,9 @@
+{
+  "status": "interrupted",
+  "error": "Firmware diferente do solicitado: MHz/preempcao=(240, 1), slicing=1, protocolo=UDP; esperado (160, 1), slicing=1, UDP",
+  "repetition": 0,
+  "run": null,
+  "configuration": "melhor",
+  "protocol": "UDP",
+  "physical_touch_partial": {}
+}

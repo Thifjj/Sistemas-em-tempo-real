@@ -232,7 +232,6 @@ static void enter_drone(event_t *event)
     event->lock_wait_us += esp_timer_get_time() - t;
 }
 static uint32_t logs_perdidos;
-static portMUX_TYPE log_lock = portMUX_INITIALIZER_UNLOCKED;
 static bool hora_sincronizada;
 static esp_timer_handle_t led_timer;
 static void apagar_led(void *arg)
@@ -396,15 +395,15 @@ static void task_fail_safe(void *arg)
 // Motivo: Chama tasks com requisito hard e sua perca pode levar a uma mudanca atrasada ou uma falha de seguranca (FAIL SAFE)
 // #
 
-// Comandos aceitos em ambos os protocolos: NAV e FS (uma linha por comando).
-// A resposta indica se o evento foi aceito pela fila.
-static const char *execute_command(const char *cmd, int64_t received_us, int64_t received_ms)
+// O PC manda: numero horario NAV (ou FS, HELLO, START, STOP).
+static const char *monitor_command(const char *line)
 {
-    uint32_t command_seq = 0;
-    long long pc_send = 0;
-    char action[16], extra;
-    if (sscanf(cmd, "%" SCNu32 " %lld %15s %c", &command_seq, &pc_send, action, &extra) != 3)
+    char action[16];
+    uint32_t sequence;
+    long long pc_time;
+    if (sscanf(line, "%" SCNu32 " %lld %15s", &sequence, &pc_time, action) != 3)
         return "COMANDO_INVALIDO\n";
+<<<<<<< Updated upstream
     cmd = action;
     if (strcmp(cmd, "TOUCHGET") == 0)
     {
@@ -480,18 +479,44 @@ static const char *execute_command(const char *cmd, int64_t received_us, int64_t
         portENTER_CRITICAL(&log_lock);
         logs_perdidos = 0;
         portEXIT_CRITICAL(&log_lock);
+=======
+    if (strcmp(action, "HELLO") == 0)
+        return "OK\n"; // Apenas dizemos "oi".
+    if (strcmp(action, "STOP") == 0 || strcmp(action, "START") == 0)
+    {
+        bool start = strcmp(action, "START") == 0;
+        portENTER_CRITICAL(&metric_lock);
+        experiment_active = false;
+        portEXIT_CRITICAL(&metric_lock);
+        if (!start)
+        {
+            experiment_trace_pause();
+            return "OK\n";
+        }
+        // START limpa as medidas e coloca o drone na posicao inicial.
+        xQueueReset(qNav);
+        xQueueReset(qFS);
+        xQueueReset(qCtrl);
+        xSemaphoreTake(drone_lock, portMAX_DELAY);
+        drone_init(&drone);
+        xSemaphoreGive(drone_lock);
+>>>>>>> Stashed changes
         experiment_trace_reset();
         portENTER_CRITICAL(&metric_lock);
         memset(metrics, 0, sizeof(metrics));
-        memset(events_expected, 0, sizeof(events_expected));
-        experiment_run++;
         experiment_start = esp_timer_get_time();
+        experiment_run++;
+<<<<<<< Updated upstream
+        experiment_start = esp_timer_get_time();
+=======
+>>>>>>> Stashed changes
         experiment_active = true;
         portEXIT_CRITICAL(&metric_lock);
-        static char started[48];
-        snprintf(started, sizeof(started), "OK RUN %lu\n", (unsigned long)experiment_run);
-        return started;
+        static char answer[48];
+        snprintf(answer, sizeof(answer), "OK RUN %lu\n", (unsigned long)experiment_run);
+        return answer;
     }
+<<<<<<< Updated upstream
     if (strcmp(cmd, "STOP") == 0)
     {
         portENTER_CRITICAL(&metric_lock);
@@ -545,28 +570,33 @@ static const char *monitor_command(const char *cmd, int64_t received_us, int64_t
     last_sequence = sequence;
     cached = true;
     return response;
+=======
+    bool emergency = strcmp(action, "FS") == 0;
+    if (!emergency && strcmp(action, "NAV") != 0)
+        return "COMANDO_INVALIDO\n";
+    // A fila e uma caixa de pedidos: a tarefa pega o pedido e faz o trabalho.
+    event_t event = {.timestamp = esp_timer_get_time(), .source = SRC_PC, .type = EV_NAV};
+    event.id = new_event_id();
+    event.command_seq = sequence;
+    event.pc_send_ms = pc_time;
+    event.received_us = event.timestamp;
+    event.received_epoch_ms = epoch_ms();
+    if (xQueueSend(emergency ? qFS : qNav, &event, 0) == pdTRUE)
+        return "OK\n";
+    event_drop(emergency ? 3 : 2);
+    return "FILA_CHEIA\n";
+>>>>>>> Stashed changes
 }
-
-// Todos os sockets sao nao bloqueantes: a rede nao deve suspender o ciclo.
-static int monitor_socket(int type, int port)
+// UDP manda uma mensagem inteira. TCP manda os bytes pela conexao com o PC.
+static bool monitor_send(int fd, const char *text, struct sockaddr_in *peer)
 {
-    int fd = socket(AF_INET, type, 0);
-    if (fd < 0)
-        return -1;
-    int flags = fcntl(fd, F_GETFL, 0);
-    struct sockaddr_in addr = {.sin_family = AF_INET, .sin_port = htons(port), .sin_addr.s_addr = htonl(INADDR_ANY)};
-    if (flags < 0 || fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0 ||
-        bind(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0 ||
-        (type == SOCK_STREAM && listen(fd, 1) < 0))
-    {
-        close(fd);
-        return -1;
-    }
-    return fd;
+    size_t size = strlen(text);
+    int n = CONFIG_DRONE_PROTOCOL_TCP ? send(fd, text, size, MSG_DONTWAIT) : sendto(fd, text, size, MSG_DONTWAIT, (struct sockaddr *)peer, sizeof(*peer));
+    return n >= 0 && (size_t)n == size;
 }
-
 static void task_monitor(void *arg)
 {
+<<<<<<< Updated upstream
     TickType_t proximo = xTaskGetTickCount();
     int64_t release = esp_timer_get_time();
     int udp = -1, servidor = -1, cliente = -1;
@@ -584,13 +614,38 @@ static void task_monitor(void *arg)
     struct sockaddr_in destino = {.sin_family = AF_INET, .sin_port = htons(PC_PORT)};
     inet_pton(AF_INET, PC_IP, &destino.sin_addr);
 
+=======
+    bool tcp = CONFIG_DRONE_PROTOCOL_TCP; // A escolha vem do menuconfig.
+    int server = socket(AF_INET, tcp ? SOCK_STREAM : SOCK_DGRAM, 0), client = -1;
+    struct sockaddr_in address = {.sin_family = AF_INET, .sin_addr.s_addr = htonl(INADDR_ANY)};
+    address.sin_port = htons(tcp ? TCP_PORT : PC_PORT);
+    if (server < 0 || bind(server, (struct sockaddr *)&address, sizeof(address)) < 0)
+    {
+        if (server >= 0)
+            close(server);
+        vTaskDelete(NULL);
+        return;
+    }
+    fcntl(server, F_SETFL, O_NONBLOCK); // Sem dados? Seguimos sem ficar esperando.
+    if (tcp)
+        listen(server, 1);
+    char input[256], output[768];
+    size_t used = 0;
+    bool known = false;
+    struct sockaddr_in peer = {0};
+    summary_t summary;
+    TickType_t next = xTaskGetTickCount();
+>>>>>>> Stashed changes
     for (;;)
     {
-        int64_t inicio = esp_timer_get_time();
+        int64_t start = esp_timer_get_time();
         experiment_trace_begin(4);
-        // Ao perder o IP, fecha sockets e recria somente apos reconectar.
-        if (!(xEventGroupGetBits(wifi_events) & WIFI_CONNECTED_BIT))
+        if (tcp && client < 0)
+            client = accept(server, NULL, NULL);
+        int fd = tcp ? client : server;
+        if (fd >= 0)
         {
+<<<<<<< Updated upstream
             if (cliente >= 0)
                 close(cliente);
             if (servidor >= 0)
@@ -621,12 +676,27 @@ static void task_monitor(void *arg)
                     int no_delay = 1;
                     if (flags < 0 || fcntl(cliente, F_SETFL, flags | O_NONBLOCK) < 0 ||
                         setsockopt(cliente, IPPROTO_TCP, TCP_NODELAY, &no_delay, sizeof(no_delay)) < 0)
+=======
+            bool ready = false;
+            if (tcp)
+            { // Juntamos as letras ate aparecer a quebra de linha.
+                int n = -1;
+                while (used < sizeof(input) - 1 && (n = recv(fd, input + used, 1, MSG_DONTWAIT)) > 0)
+                    if (input[used++] == '\n')
+>>>>>>> Stashed changes
                     {
-                        close(cliente);
-                        cliente = -1;
+                        ready = true;
+                        break;
                     }
+                if (!ready && (used == sizeof(input) - 1 || n == 0 ||
+                               (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK)))
+                {
+                    close(client);
+                    client = -1;
+                    used = 0;
                 }
             }
+<<<<<<< Updated upstream
             // Um datagrama representa um comando; responde ao remetente.
             if (udp >= 0)
             {
@@ -651,69 +721,36 @@ static void task_monitor(void *arg)
                         udp_ack_len = tam;
                         udp_ack_peer = origem;
                     }
+=======
+            else
+            { // UDP ja entrega o pedido inteiro e o endereco de quem mandou.
+                socklen_t size = sizeof(peer);
+                int n = recvfrom(fd, input, sizeof(input) - 1, 0, (struct sockaddr *)&peer, &size);
+                if (n > 0)
+                {
+                    used = n;
+                    ready = true;
+                    known = true;
+>>>>>>> Stashed changes
                 }
             }
-            // TCP e um fluxo: acumula fragmentos ate encontrar uma quebra de linha.
-            if (cliente >= 0)
-            {
-                char buf[128];
-                int n = tcp_ack_total == tcp_ack_sent ? recv(cliente, buf, sizeof(buf), 0) : -1;
-                if (tcp_ack_total != tcp_ack_sent)
-                    errno = EAGAIN;
-                if (n == 0 || (n < 0 && errno != EAGAIN && errno != EWOULDBLOCK))
+            if (ready)
+            { // Primeiro fazemos o pedido; depois respondemos ao PC.
+                input[used] = 0;
+                input[strcspn(input, "\r\n")] = 0;
+                const char *answer = monitor_command(input);
+                snprintf(output, sizeof(output), "ACK %s %lld %s", input, (long long)epoch_ms(), answer);
+                if (!monitor_send(fd, output, &peer) && tcp)
                 {
-                    close(cliente);
-                    cliente = -1;
-                    usados = 0;
+                    close(client);
+                    client = -1;
                 }
-                else if (n > 0)
-                {
-                    int64_t rx_us = esp_timer_get_time(), rx_ms = epoch_ms();
-                    for (int i = 0; i < n; i++)
-                    {
-                        if (buf[i] == '\n')
-                        {
-                            entrada[usados] = 0;
-                            entrada[strcspn(entrada, "\r")] = 0;
-                            const char *resposta = monitor_command(entrada, rx_us, rx_ms);
-                            // Uma resposta pendente preserva bytes em envios parciais.
-                            int tam = snprintf(tcp_ack, sizeof(tcp_ack), "ACK %s %lld %s", entrada, (long long)epoch_ms(), resposta);
-                            if (tam > 0 && tam < sizeof(tcp_ack))
-                            {
-                                tcp_ack_total = tam;
-                                tcp_ack_sent = 0;
-                            }
-                            else
-                            {
-                                close(cliente);
-                                cliente = -1;
-                                break;
-                            }
-                            usados = 0;
-                            // Um comando por leitura; feche se vierem linhas adicionais para nao perder dados.
-                            if (i + 1 < n)
-                            {
-                                close(cliente);
-                                cliente = -1;
-                                tcp_total = tcp_enviado = 0;
-                                break;
-                            }
-                        }
-                        else if (usados < sizeof(entrada) - 1)
-                            entrada[usados++] = buf[i];
-                        else
-                        {
-                            usados = 0;
-                            close(cliente);
-                            cliente = -1;
-                            break;
-                        }
-                    }
-                }
+                used = 0;
             }
-            // Envia registros individuais; limita o trabalho por ciclo e contabiliza perdas da fila.
-            for (int i = 0; i < (CONFIG_DRONE_PROTOCOL_TCP ? 6 : 1); i++)
+            // Por ultimo, mandamos os resumos das tarefas. UDP pode perder mensagens.
+            for (unsigned i = 0; i < 7 + portNUM_PROCESSORS && (tcp ? client >= 0 : known); i++)
             {
+<<<<<<< Updated upstream
                 if (udp >= 0 && udp_ack_len)
                 {
                     if (sendto(udp, udp_ack, udp_ack_len, 0, (struct sockaddr *)&udp_ack_peer, sizeof(udp_ack_peer)) < 0)
@@ -803,22 +840,25 @@ static void task_monitor(void *arg)
                 if (n > 0)
                     tcp_enviado += n;
                 else if (n == 0 || (errno != EAGAIN && errno != EWOULDBLOCK))
+=======
+                if (xQueueReceive(qSummary[i], &summary, 0) != pdTRUE)
+                    continue;
+                if (!packet_size(summary.text, sizeof(summary.text)))
+                    continue;
+                stamp_send(summary.text);
+                // Se TCP nao aceitar tudo, fechamos para nao misturar mensagens.
+                if (!monitor_send(fd, summary.text, &peer) && tcp)
+>>>>>>> Stashed changes
                 {
-                    ESP_LOGW(TAG, "Conexao TCP encerrada: %d", errno);
-                    close(cliente);
-                    cliente = -1;
-                    tcp_total = tcp_enviado = usados = 0;
+                    close(client);
+                    client = -1;
+                    break;
                 }
             }
         }
-        // Mede a duracao do ciclo e verifica seu prazo de 500 ms.
-        int64_t fim = esp_timer_get_time();
-        registrar_evento(4, (event_t){.timestamp = release, .id = new_event_id(), .source = SRC_PERIODIC}, inicio, fim);
-        if (fim - inicio > 500000)
-            ESP_LOGW(TAG, "MONITOR excedeu 500 ms");
-        if (xTaskDelayUntil(&proximo, pdMS_TO_TICKS(10)) == pdFALSE)
-            vTaskDelay(1); // An overdue cycle must still let lower-priority tasks run.
-        release += 10000;
+        registrar_evento(4, (event_t){.timestamp = start, .source = SRC_PERIODIC}, start, esp_timer_get_time());
+        if (xTaskDelayUntil(&next, pdMS_TO_TICKS(10)) == pdFALSE)
+            vTaskDelay(1);
     }
 }
 
@@ -1396,6 +1436,9 @@ void app_main(void)
     ESP_ERROR_CHECK(xTaskCreate(task_time, "TIME", STK, NULL, PRIO_TIME, NULL) == pdPASS ? ESP_OK : ESP_ERR_NO_MEM);
 
     ESP_ERROR_CHECK(example_touch_init());
+    ESP_ERROR_CHECK(touch_sensor_start_continuous_scanning(physical_sensor));
+    physical_scanning = true;
+    physical_touch_enabled = true;
 
     ESP_LOGI(TAG, "Sistema iniciado: heap interno livre=%u maior_bloco=%u resumos=500ms",
              (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
