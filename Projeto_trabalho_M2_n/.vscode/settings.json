@@ -23,7 +23,7 @@
     "board/esp32-wrover-kit-3.3v.cfg"
   ],
   "idf.port": "/dev/ttyUSB0",
-  "idf.currentSetup": "/media/jacques/hdd/.espressif_dowload/.espressif/v6.1/esp-idf",
+  "idf.currentSetup": "/home/thiago/.espressif/v6.1/esp-idf",
   "idf.customExtraVars": {
     "IDF_TARGET": "esp32"
   },

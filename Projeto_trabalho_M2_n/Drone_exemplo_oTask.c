@@ -15,8 +15,8 @@
 #include "esp_timer.h"
 #include "esp_log.h"
 #include "driver/gpio.h"
-#include "driver/touch_pad.h" /
-/ API oficial de touch pad : contentReference [oaicite:1]{index = 1}
+#include "driver/touch_pad.h"
+// API oficial de touch pad : contentReference [oaicite:1]{index = 1}
 
 #define TAG "DRONE"
 
@@ -35,7 +35,7 @@
 #define PRIO_NAV_PLAN 2
 #define STK 3072
 
-                             typedef struct
+typedef struct
 {
     float m1;
     float m2;
