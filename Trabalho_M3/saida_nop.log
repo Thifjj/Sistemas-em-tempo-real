@@ -1,0 +1,799 @@
+Modo de carga: NOP (ocupa a CPU)
+[T1] executando
+[T2] executando
+[T3] executando
+[T4] executando
+Rodando por 10 segundos...
+[T1] executando
+[T1] executando
+[T2] executando
+[T1] executando
+[T3] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9340044.68ms inicio=9340089.85ms fim=9340093.36ms exec=3.50ms espera=45.17ms resposta=48.67ms
+[T1] executando
+[T2] executando
+[T4] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9340120.11ms inicio=9340139.58ms fim=9340140.09ms exec=0.51ms espera=19.47ms resposta=19.98ms
+[T1] executando
+[T1] executando
+[T2] executando
+[T3] executando
+[T1] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9340198.21ms inicio=9340239.56ms fim=9340243.07ms exec=3.50ms espera=41.35ms resposta=44.85ms
+[T1] executando
+[T2] executando
+[T4] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9340281.32ms inicio=9340289.56ms fim=9340290.06ms exec=0.50ms espera=8.24ms resposta=8.75ms
+[T1] executando
+[T3] executando
+[T1] executando
+[T2] executando
+[T1] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9340367.42ms inicio=9340389.56ms fim=9340393.06ms exec=3.50ms espera=22.14ms resposta=25.64ms
+[T1] executando
+[T2] executando
+[T3] executando
+[T4] executando
+[T1] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9340449.53ms inicio=9340489.54ms fim=9340490.04ms exec=0.51ms espera=40.01ms resposta=40.51ms
+[T1] executando
+[T2] executando
+[T1] executando
+[T3] executando
+[T1] executando
+[T2] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9340555.00ms inicio=9340589.54ms fim=9340593.04ms exec=3.50ms espera=34.54ms resposta=38.04ms
+[T4] executando
+[T1] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9340602.06ms inicio=9340639.57ms fim=9340640.07ms exec=0.51ms espera=37.51ms resposta=38.01ms
+[T1] executando
+[T2] executando
+[T3] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9340676.16ms inicio=9340689.58ms fim=9340693.08ms exec=3.50ms espera=13.42ms resposta=16.93ms
+[T1] executando
+[T1] executando
+[T2] executando
+[T4] executando
+[T1] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9340768.28ms inicio=9340789.83ms fim=9340790.34ms exec=0.51ms espera=21.55ms resposta=22.06ms
+[T3] executando
+[T1] executando
+[T2] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9340829.98ms inicio=9340839.83ms fim=9340843.34ms exec=3.50ms espera=9.85ms resposta=13.36ms
+[T1] executando
+[T1] executando
+[T2] executando
+[T3] executando
+[T4] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9340915.02ms inicio=9340939.85ms fim=9340940.37ms exec=0.51ms espera=24.83ms resposta=25.34ms
+[T1] executando
+[T1] executando
+[T2] executando
+[T1] executando
+[T3] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9341029.39ms inicio=9341039.78ms fim=9341043.29ms exec=3.50ms espera=10.39ms resposta=13.89ms
+[T1] executando
+[T2] executando
+[T4] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9341069.85ms inicio=9341089.86ms fim=9341090.37ms exec=0.51ms espera=20.00ms resposta=20.52ms
+[T1] executando
+[T1] executando
+[T2] executando
+[T3] executando
+[T1] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9341184.98ms inicio=9341189.83ms fim=9341193.34ms exec=3.50ms espera=4.85ms resposta=8.35ms
+[T1] executando
+[T2] executando
+[T4] executando
+[T1] executando
+[T3] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9341246.36ms inicio=9341289.85ms fim=9341290.37ms exec=0.51ms espera=43.49ms resposta=44.00ms
+[T1] executando
+[T2] executando
+[T1] executando
+[T1] executando
+[T2] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9341344.66ms inicio=9341389.54ms fim=9341393.04ms exec=3.50ms espera=44.87ms resposta=48.38ms
+[T3] executando
+[T4] executando
+[T1] executando
+[T1] executando
+[T2] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9341451.77ms inicio=9341489.78ms fim=9341490.29ms exec=0.51ms espera=38.01ms resposta=38.52ms
+[T1] executando
+[T3] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9341515.88ms inicio=9341539.83ms fim=9341543.34ms exec=3.50ms espera=23.96ms resposta=27.46ms
+[T1] executando
+[T2] executando
+[T4] executando
+[T1] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9341584.70ms inicio=9341589.57ms fim=9341590.07ms exec=0.51ms espera=4.87ms resposta=5.38ms
+[T1] executando
+[T2] executando
+[T3] executando
+[T1] executando
+[T1] executando
+[T2] executando
+[T4] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9341699.11ms inicio=9341739.87ms fim=9341743.37ms exec=3.50ms espera=40.76ms resposta=44.27ms
+[T1] executando
+[T3] executando
+[T1] executando
+[T2] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9341760.48ms inicio=9341789.54ms fim=9341790.04ms exec=0.51ms espera=29.06ms resposta=29.56ms
+[T1] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9341803.88ms inicio=9341839.85ms fim=9341843.36ms exec=3.50ms espera=35.98ms resposta=39.48ms
+[T1] executando
+[T2] executando
+[T3] executando
+[T4] executando
+[T1] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9341917.27ms inicio=9341939.58ms fim=9341940.09ms exec=0.51ms espera=22.32ms resposta=22.83ms
+[T1] executando
+[T2] executando
+[T1] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9341952.38ms inicio=9341989.59ms fim=9341993.09ms exec=3.50ms espera=37.21ms resposta=40.72ms
+[T3] executando
+[T1] executando
+[T2] executando
+[T4] executando
+[T1] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9342064.97ms inicio=9342089.85ms fim=9342090.36ms exec=0.51ms espera=24.88ms resposta=25.39ms
+[T1] executando
+[T2] executando
+[T3] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9342104.74ms inicio=9342139.60ms fim=9342143.10ms exec=3.50ms espera=34.85ms resposta=38.36ms
+[T1] executando
+[T1] executando
+[T2] executando
+[T4] executando
+[T1] executando
+[T3] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9342224.96ms inicio=9342239.86ms fim=9342240.37ms exec=0.51ms espera=14.90ms resposta=15.41ms
+[T1] executando
+[T2] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9342283.35ms inicio=9342289.90ms fim=9342293.40ms exec=3.50ms espera=6.55ms resposta=10.06ms
+[T1] executando
+[T1] executando
+[T2] executando
+[T3] executando
+[T4] executando
+[T1] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9342385.04ms inicio=9342389.84ms fim=9342390.35ms exec=0.51ms espera=4.81ms resposta=5.32ms
+[T1] executando
+[T2] executando
+[T1] executando
+[T3] executando
+[T1] executando
+[T2] executando
+[T4] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9342498.44ms inicio=9342539.84ms fim=9342543.35ms exec=3.50ms espera=41.41ms resposta=44.91ms
+[T1] executando
+[T1] executando
+[T2] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9342572.84ms inicio=9342589.54ms fim=9342590.04ms exec=0.51ms espera=16.70ms resposta=17.20ms
+[T3] executando
+[T1] executando
+[T1] executando
+[T2] executando
+[T4] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9342680.94ms inicio=9342689.58ms fim=9342693.08ms exec=3.50ms espera=8.64ms resposta=12.14ms
+[T1] executando
+[T3] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9342715.26ms inicio=9342739.58ms fim=9342740.09ms exec=0.51ms espera=24.32ms resposta=24.83ms
+[T1] executando
+[T2] executando
+[T1] executando
+[T1] executando
+[T2] executando
+[T3] executando
+[T4] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9342804.71ms inicio=9342839.54ms fim=9342843.04ms exec=3.50ms espera=34.83ms resposta=38.33ms
+[T1] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9342879.03ms inicio=9342889.56ms fim=9342890.07ms exec=0.51ms espera=10.54ms resposta=11.04ms
+[T1] executando
+[T2] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9342926.13ms inicio=9342939.56ms fim=9342943.07ms exec=3.50ms espera=13.43ms resposta=16.93ms
+[T1] executando
+[T3] executando
+[T1] executando
+[T2] executando
+[T4] executando
+[T1] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9343000.22ms inicio=9343039.82ms fim=9343040.33ms exec=0.51ms espera=39.59ms resposta=40.11ms
+[T1] executando
+[T2] executando
+[T3] executando
+[T1] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9343091.33ms inicio=9343139.82ms fim=9343143.33ms exec=3.50ms espera=48.49ms resposta=51.99ms
+[T1] executando
+[T2] executando
+[T4] executando
+[T1] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9343184.98ms inicio=9343189.58ms fim=9343190.09ms exec=0.51ms espera=4.60ms resposta=5.11ms
+[T3] executando
+[T1] executando
+[T2] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9343232.37ms inicio=9343239.83ms fim=9343243.33ms exec=3.50ms espera=7.46ms resposta=10.96ms
+[T1] executando
+[T1] executando
+[T2] executando
+[T3] executando
+[T4] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9343320.07ms inicio=9343339.86ms fim=9343340.37ms exec=0.51ms espera=19.79ms resposta=20.30ms
+[T1] executando
+[T1] executando
+[T2] executando
+[T1] executando
+[T3] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9343413.33ms inicio=9343439.58ms fim=9343443.08ms exec=3.50ms espera=26.25ms resposta=29.75ms
+[T1] executando
+[T2] executando
+[T4] executando
+[T1] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9343506.45ms inicio=9343539.79ms fim=9343540.30ms exec=0.51ms espera=33.34ms resposta=33.85ms
+[T1] executando
+[T2] executando
+[T3] executando
+[T1] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9343561.83ms inicio=9343589.89ms fim=9343593.39ms exec=3.50ms espera=28.06ms resposta=31.57ms
+[T1] executando
+[T2] executando
+[T4] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9343608.22ms inicio=9343639.53ms fim=9343640.04ms exec=0.51ms espera=31.31ms resposta=31.82ms
+[T1] executando
+[T3] executando
+[T1] executando
+[T2] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9343694.33ms inicio=9343739.86ms fim=9343743.37ms exec=3.50ms espera=45.53ms resposta=49.03ms
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9343724.73ms inicio=9343743.38ms fim=9343743.89ms exec=0.50ms espera=18.66ms resposta=19.16ms
+[T1] executando
+[T1] executando
+[T2] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9343758.13ms inicio=9343789.54ms fim=9343793.04ms exec=3.50ms espera=31.40ms resposta=34.91ms
+[T3] executando
+[T4] executando
+[T1] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9343803.13ms inicio=9343839.84ms fim=9343840.35ms exec=0.51ms espera=36.71ms resposta=37.22ms
+[T1] executando
+[T2] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9343869.98ms inicio=9343889.59ms fim=9343893.09ms exec=3.50ms espera=19.61ms resposta=23.11ms
+[T1] executando
+[T3] executando
+[T1] executando
+[T2] executando
+[T4] executando
+[T1] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9343949.85ms inicio=9343989.83ms fim=9343990.34ms exec=0.51ms espera=39.98ms resposta=40.49ms
+[T1] executando
+[T2] executando
+[T3] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9344011.94ms inicio=9344039.54ms fim=9344043.04ms exec=3.50ms espera=27.60ms resposta=31.10ms
+[T1] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9344053.07ms inicio=9344089.59ms fim=9344090.10ms exec=0.51ms espera=36.51ms resposta=37.02ms
+[T1] executando
+[T2] executando
+[T4] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9344125.47ms inicio=9344139.58ms fim=9344143.08ms exec=3.50ms espera=14.11ms resposta=17.61ms
+[T1] executando
+[T3] executando
+[T1] executando
+[T2] executando
+[T1] executando
+[T1] executando
+[T2] executando
+[T3] executando
+[T4] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9344244.85ms inicio=9344289.59ms fim=9344290.10ms exec=0.51ms espera=44.74ms resposta=45.26ms
+[T1] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9344329.98ms inicio=9344339.81ms fim=9344343.32ms exec=3.50ms espera=9.83ms resposta=13.34ms
+[T1] executando
+[T2] executando
+[T1] executando
+[T3] executando
+[T1] executando
+[T2] executando
+[T4] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9344409.37ms inicio=9344439.54ms fim=9344440.04ms exec=0.51ms espera=30.17ms resposta=30.68ms
+[T1] executando
+[T1] executando
+[T2] executando
+[T3] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9344524.77ms inicio=9344539.86ms fim=9344543.39ms exec=3.53ms espera=15.09ms resposta=18.62ms
+[T1] executando
+[T1] executando
+[T2] executando
+[T4] executando
+[T1] executando
+[T3] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9344600.39ms inicio=9344639.86ms fim=9344640.37ms exec=0.51ms espera=39.47ms resposta=39.98ms
+[T1] executando
+[T2] executando
+[T1] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9344712.78ms inicio=9344739.86ms fim=9344743.37ms exec=3.50ms espera=27.09ms resposta=30.59ms
+[T1] executando
+[T2] executando
+[T3] executando
+[T4] executando
+[T1] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9344784.98ms inicio=9344789.58ms fim=9344790.09ms exec=0.51ms espera=4.60ms resposta=5.11ms
+[T1] executando
+[T2] executando
+[T1] executando
+[T3] executando
+[T1] executando
+[T2] executando
+[T4] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9344909.82ms inicio=9344939.86ms fim=9344943.36ms exec=3.50ms espera=30.03ms resposta=33.54ms
+[T1] executando
+[T1] executando
+[T2] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9344972.21ms inicio=9344989.54ms fim=9344990.04ms exec=0.51ms espera=17.32ms resposta=17.83ms
+[T3] executando
+[T1] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9345007.33ms inicio=9345039.83ms fim=9345043.34ms exec=3.50ms espera=32.51ms resposta=36.01ms
+[T1] executando
+[T2] executando
+[T4] executando
+[T1] executando
+[T3] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9345095.52ms inicio=9345139.59ms fim=9345140.10ms exec=0.51ms espera=44.07ms resposta=44.58ms
+[T1] executando
+[T2] executando
+[T1] executando
+[T1] executando
+[T2] executando
+[T3] executando
+[T4] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9345201.91ms inicio=9345239.54ms fim=9345243.04ms exec=3.50ms espera=37.62ms resposta=41.12ms
+[T1] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9345254.30ms inicio=9345289.57ms fim=9345290.08ms exec=0.51ms espera=35.27ms resposta=35.78ms
+[T1] executando
+[T2] executando
+[T1] executando
+[T3] executando
+[T1] executando
+[T2] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9345349.65ms inicio=9345389.54ms fim=9345393.04ms exec=3.50ms espera=39.88ms resposta=43.39ms
+[T4] executando
+[T1] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9345393.10ms inicio=9345439.57ms fim=9345440.08ms exec=0.51ms espera=46.47ms resposta=46.98ms
+[T1] executando
+[T2] executando
+[T3] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9345474.98ms inicio=9345489.59ms fim=9345493.10ms exec=3.50ms espera=14.61ms resposta=18.11ms
+[T1] executando
+[T1] executando
+[T2] executando
+[T4] executando
+[T1] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9345549.90ms inicio=9345589.88ms fim=9345590.39ms exec=0.51ms espera=39.98ms resposta=40.49ms
+[T3] executando
+[T1] executando
+[T2] executando
+[T1] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9345643.29ms inicio=9345689.84ms fim=9345693.35ms exec=3.50ms espera=46.55ms resposta=50.05ms
+[T1] executando
+[T2] executando
+[T3] executando
+[T4] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9345693.38ms inicio=9345739.85ms fim=9345740.36ms exec=0.51ms espera=46.47ms resposta=46.98ms
+[T1] executando
+[T1] executando
+[T2] executando
+[T1] executando
+[T3] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9345792.49ms inicio=9345839.84ms fim=9345843.35ms exec=3.50ms espera=47.35ms resposta=50.85ms
+[T1] executando
+[T2] executando
+[T4] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9345872.89ms inicio=9345889.84ms fim=9345890.35ms exec=0.51ms espera=16.95ms resposta=17.46ms
+[T1] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9345937.30ms inicio=9345939.60ms fim=9345943.10ms exec=3.50ms espera=2.30ms resposta=5.80ms
+[T1] executando
+[T2] executando
+[T3] executando
+[T1] executando
+[T1] executando
+[T2] executando
+[T4] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9346003.68ms inicio=9346039.54ms fim=9346040.04ms exec=0.51ms espera=35.85ms resposta=36.36ms
+[T1] executando
+[T3] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9346046.10ms inicio=9346089.86ms fim=9346093.36ms exec=3.50ms espera=43.76ms resposta=47.27ms
+[T1] executando
+[T2] executando
+[T1] executando
+[T1] executando
+[T2] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9346165.20ms inicio=9346189.54ms fim=9346190.04ms exec=0.51ms espera=24.34ms resposta=24.84ms
+[T3] executando
+[T4] executando
+[T1] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9346231.58ms inicio=9346239.85ms fim=9346243.35ms exec=3.50ms espera=8.27ms resposta=11.77ms
+[T1] executando
+[T2] executando
+[T1] executando
+[T3] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9346315.02ms inicio=9346339.86ms fim=9346340.37ms exec=0.51ms espera=24.84ms resposta=25.35ms
+[T1] executando
+[T2] executando
+[T4] executando
+[T1] executando
+[T1] executando
+[T2] executando
+[T3] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9346393.42ms inicio=9346439.59ms fim=9346443.09ms exec=3.50ms espera=46.17ms resposta=49.67ms
+[T1] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9346453.55ms inicio=9346489.55ms fim=9346490.06ms exec=0.51ms espera=36.00ms resposta=36.51ms
+[T1] executando
+[T2] executando
+[T4] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9346504.67ms inicio=9346539.57ms fim=9346543.07ms exec=3.50ms espera=34.90ms resposta=38.40ms
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9346534.77ms inicio=9346543.09ms fim=9346543.59ms exec=0.50ms espera=8.32ms resposta=8.82ms
+[T1] executando
+[T3] executando
+[T1] executando
+[T2] executando
+[T1] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9346594.88ms inicio=9346639.87ms fim=9346643.37ms exec=3.50ms espera=44.99ms resposta=48.49ms
+[T1] executando
+[T2] executando
+[T3] executando
+[T4] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9346674.94ms inicio=9346689.81ms fim=9346690.32ms exec=0.51ms espera=14.87ms resposta=15.39ms
+[T1] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9346717.34ms inicio=9346739.86ms fim=9346743.36ms exec=3.50ms espera=22.52ms resposta=26.02ms
+[T1] executando
+[T2] executando
+[T1] executando
+[T3] executando
+[T1] executando
+[T2] executando
+[T4] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9346829.96ms inicio=9346839.54ms fim=9346840.04ms exec=0.51ms espera=9.57ms resposta=10.08ms
+[T1] executando
+[T1] executando
+[T2] executando
+[T3] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9346915.02ms inicio=9346939.85ms fim=9346943.35ms exec=3.50ms espera=24.83ms resposta=28.34ms
+[T1] executando
+[T1] executando
+[T2] executando
+[T4] executando
+[T1] executando
+[T3] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9347001.07ms inicio=9347039.84ms fim=9347040.35ms exec=0.51ms espera=38.77ms resposta=39.28ms
+[T1] executando
+[T2] executando
+[T1] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9347111.19ms inicio=9347139.84ms fim=9347143.34ms exec=3.50ms espera=28.64ms resposta=32.15ms
+[T1] executando
+[T2] executando
+[T3] executando
+[T4] executando
+[T1] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9347187.34ms inicio=9347189.81ms fim=9347190.32ms exec=0.51ms espera=2.47ms resposta=2.98ms
+[T1] executando
+[T2] executando
+[T1] executando
+[T3] executando
+[T1] executando
+[T2] executando
+[T4] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9347310.00ms inicio=9347339.85ms fim=9347343.36ms exec=3.50ms espera=29.86ms resposta=33.36ms
+[T1] executando
+[T1] executando
+[T2] executando
+[T3] executando
+[T1] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9347425.13ms inicio=9347439.80ms fim=9347440.31ms exec=0.51ms espera=14.66ms resposta=15.18ms
+[T1] executando
+[T2] executando
+[T4] executando
+[T1] executando
+[T3] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9347521.53ms inicio=9347539.84ms fim=9347543.34ms exec=3.50ms espera=18.31ms resposta=21.82ms
+[T1] executando
+[T2] executando
+[T1] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9347587.74ms inicio=9347589.61ms fim=9347590.15ms exec=0.54ms espera=1.87ms resposta=2.41ms
+[T1] executando
+[T2] executando
+[T3] executando
+[T4] executando
+[T1] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9347640.07ms inicio=9347689.86ms fim=9347693.37ms exec=3.50ms espera=49.79ms resposta=53.30ms
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9347673.46ms inicio=9347693.39ms fim=9347693.89ms exec=0.50ms espera=19.93ms resposta=20.43ms
+[T1] executando
+[T2] executando
+[T1] executando
+[T3] executando
+[T1] executando
+[T2] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9347748.59ms inicio=9347789.54ms fim=9347793.04ms exec=3.50ms espera=40.95ms resposta=44.45ms
+[T4] executando
+[T1] executando
+[T1] executando
+[T2] executando
+[T3] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9347841.74ms inicio=9347889.56ms fim=9347890.07ms exec=0.51ms espera=47.82ms resposta=48.33ms
+[T1] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9347918.82ms inicio=9347939.57ms fim=9347943.07ms exec=3.50ms espera=20.74ms resposta=24.25ms
+[T1] executando
+[T2] executando
+[T4] executando
+[T1] executando
+[T3] executando
+[T1] executando
+[T2] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9348018.93ms inicio=9348039.58ms fim=9348040.10ms exec=0.51ms espera=20.65ms resposta=21.16ms
+[T1] executando
+[T1] executando
+[T2] executando
+[T3] executando
+[T4] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9348093.19ms inicio=9348139.59ms fim=9348143.10ms exec=3.50ms espera=46.40ms resposta=49.91ms
+[T1] executando
+[T1] executando
+[T2] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9348150.59ms inicio=9348189.54ms fim=9348190.04ms exec=0.51ms espera=38.95ms resposta=39.45ms
+[T1] executando
+[T3] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9348210.73ms inicio=9348239.82ms fim=9348243.33ms exec=3.50ms espera=29.09ms resposta=32.59ms
+[T1] executando
+[T2] executando
+[T4] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9348280.84ms inicio=9348289.76ms fim=9348290.28ms exec=0.51ms espera=8.92ms resposta=9.43ms
+[T1] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9348336.19ms inicio=9348339.84ms fim=9348343.34ms exec=3.50ms espera=3.65ms resposta=7.16ms
+[T1] executando
+[T2] executando
+[T3] executando
+[T1] executando
+[T1] executando
+[T2] executando
+[T4] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9348409.66ms inicio=9348439.54ms fim=9348440.04ms exec=0.51ms espera=29.88ms resposta=30.39ms
+[T1] executando
+[T3] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9348480.04ms inicio=9348489.85ms fim=9348493.35ms exec=3.50ms espera=9.80ms resposta=13.31ms
+[T1] executando
+[T2] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9348533.43ms inicio=9348539.83ms fim=9348540.34ms exec=0.51ms espera=6.41ms resposta=6.92ms
+[T1] executando
+[T1] executando
+[T2] executando
+[T3] executando
+[T4] executando
+[T1] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9348616.82ms inicio=9348639.59ms fim=9348643.10ms exec=3.50ms espera=22.77ms resposta=26.28ms
+[T1] executando
+[T2] executando
+[T1] executando
+[T3] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9348697.22ms inicio=9348739.86ms fim=9348740.38ms exec=0.51ms espera=42.64ms resposta=43.15ms
+[T1] executando
+[T2] executando
+[T4] executando
+[T1] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9348784.71ms inicio=9348789.86ms fim=9348793.36ms exec=3.50ms espera=5.15ms resposta=8.66ms
+[T1] executando
+[T2] executando
+[T3] executando
+[T1] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9348852.10ms inicio=9348889.84ms fim=9348890.35ms exec=0.51ms espera=37.74ms resposta=38.26ms
+[T1] executando
+[T2] executando
+[T4] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9348895.23ms inicio=9348939.85ms fim=9348943.36ms exec=3.50ms espera=44.63ms resposta=48.13ms
+[T1] executando
+[T3] executando
+[T1] executando
+[T2] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9348971.61ms inicio=9348989.54ms fim=9348990.04ms exec=0.51ms espera=17.93ms resposta=18.43ms
+[T1] executando
+[T1] executando
+[T2] executando
+[T3] executando
+[T4] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9349040.09ms inicio=9349089.83ms fim=9349093.33ms exec=3.50ms espera=49.74ms resposta=53.24ms
+[T1] executando
+[T1] executando
+[T2] executando
+[T1] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9349149.83ms inicio=9349189.83ms fim=9349190.34ms exec=0.51ms espera=40.00ms resposta=40.51ms
+[T3] executando
+[T1] executando
+[T2] executando
+[T4] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9349213.21ms inicio=9349239.54ms fim=9349243.04ms exec=3.50ms espera=26.33ms resposta=29.83ms
+[T1] executando
+[T1] executando
+[T2] executando
+[T3] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9349327.32ms inicio=9349339.86ms fim=9349340.38ms exec=0.51ms espera=12.54ms resposta=13.05ms
+[T1] executando
+[T1] executando
+[T2] executando
+[T4] executando
+[T1] executando
+[T3] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9349400.40ms inicio=9349439.86ms fim=9349443.37ms exec=3.50ms espera=39.46ms resposta=42.96ms
+[T1] executando
+[T2] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9349453.52ms inicio=9349489.85ms fim=9349490.36ms exec=0.51ms espera=36.33ms resposta=36.84ms
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9349485.91ms inicio=9349490.37ms fim=9349493.88ms exec=3.50ms espera=4.46ms resposta=7.96ms
+[T1] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9349519.43ms inicio=9349539.74ms fim=9349540.25ms exec=0.51ms espera=20.31ms resposta=20.82ms
+[T1] executando
+[T2] executando
+[T3] executando
+[T4] executando
+[T1] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9349568.55ms inicio=9349589.89ms fim=9349593.39ms exec=3.50ms espera=21.34ms resposta=24.84ms
+[T1] executando
+[T2] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9349629.98ms inicio=9349639.84ms fim=9349640.35ms exec=0.51ms espera=9.86ms resposta=10.37ms
+[T1] executando
+[T3] executando
+[T1] executando
+[T2] executando
+[T4] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9349699.37ms inicio=9349739.87ms fim=9349743.38ms exec=3.50ms espera=40.51ms resposta=44.01ms
+[T1] executando
+[T1] executando
+[T2] executando
+[T3] executando
+[T1] executando
+TEL: roll=0.00 pitch=0.00 yaw=0.00
+NAV_PLAN: chegada=9349818.76ms inicio=9349839.87ms fim=9349840.38ms exec=0.51ms espera=21.11ms resposta=21.62ms
+[T1] executando
+[T2] executando
+[T4] executando
+NAV_PLAN: Evento NAV recebido
+NAV_PLAN: chegada=9349883.16ms inicio=9349889.86ms fim=9349893.36ms exec=3.50ms espera=6.70ms resposta=10.20ms
+[T1] executando
+[T3] executando
+[T1] executando
+[T2] executando
+
+===== RESUMO (ms) =====
+NAV: 66 requisicoes
+  exec     min=3.50  media=3.50  max=3.53
+  espera   min=2.30  media=27.57  max=49.79
+  resposta min=5.80  media=31.07  max=53.30
+TEL: 65 requisicoes
+  exec     min=0.50  media=0.51  max=0.54
+  espera   min=1.87  media=25.45  max=47.82
+  resposta min=2.41  media=25.96  max=48.33
+Encerrando (para exemplo simples vamos apenas sair do processo).
